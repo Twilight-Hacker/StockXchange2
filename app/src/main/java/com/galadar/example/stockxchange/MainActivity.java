@@ -10,6 +10,7 @@ import android.content.IntentFilter;
 import android.media.MediaPlayer;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.Looper;
 import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AppCompatActivity;
@@ -21,9 +22,9 @@ import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+
 import java.util.ArrayList;
 import java.util.Random;
-import android.os.Handler;
 
 /*
 Specific View IDs for editing textViews
@@ -677,6 +678,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private EconomyState getEconomyState(double EconomyOutlook) {
+        if(p.getLevel()==1) return EconomyState.Normal;
         if(EconomyOutlook>0.75)return EconomyState.Boom;
         if(EconomyOutlook>0.5)return EconomyState.Accel;
         if(EconomyOutlook<-0.5)return EconomyState.Recess;
@@ -825,7 +827,6 @@ public class MainActivity extends AppCompatActivity {
     private BroadcastReceiver AdvanceTime = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, final Intent intent) {
-            UpdateTopBar(topBarPlayer, topBarDaytime);
             new Thread(new Runnable() {
                 @Override
                 public void run() {
@@ -836,6 +837,7 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
             ).start();
+            UpdateTopBar(topBarPlayer, topBarDaytime);
             if (fullGame) {
                 DBHandler.setHour(time.getHour(), time.getMin());
                 for (int i = 0; i < f.getNumComp(); i++) {
