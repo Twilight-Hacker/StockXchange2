@@ -29,6 +29,8 @@ public class PlayerInfoActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_player_info);
 
+        //TODO Add support for fame and events
+
         this.setTitle(getString(R.string.title_activity_player_info));
 
         time = MainActivity.getClock();

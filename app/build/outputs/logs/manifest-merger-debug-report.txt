@@ -1,6 +1,6 @@
 -- Merging decision tree log ---
 manifest
-ADDED from C:\Users\Galadar\AndroidStudioProjects\StockXchange2\app\src\main\AndroidManifest.xml:2:1-131:12
+ADDED from C:\Users\Galadar\AndroidStudioProjects\StockXchange2\app\src\main\AndroidManifest.xml:2:1-136:12
 	package
 		ADDED from C:\Users\Galadar\AndroidStudioProjects\StockXchange2\app\src\main\AndroidManifest.xml:3:5-47
 		INJECTED from C:\Users\Galadar\AndroidStudioProjects\StockXchange2\app\src\main\AndroidManifest.xml
@@ -14,7 +14,7 @@ ADDED from C:\Users\Galadar\AndroidStudioProjects\StockXchange2\app\src\main\And
 		INJECTED from C:\Users\Galadar\AndroidStudioProjects\StockXchange2\app\src\main\AndroidManifest.xml
 		INJECTED from C:\Users\Galadar\AndroidStudioProjects\StockXchange2\app\src\main\AndroidManifest.xml
 application
-ADDED from C:\Users\Galadar\AndroidStudioProjects\StockXchange2\app\src\main\AndroidManifest.xml:5:5-129:19
+ADDED from C:\Users\Galadar\AndroidStudioProjects\StockXchange2\app\src\main\AndroidManifest.xml:5:5-134:19
 MERGED from [com.android.support:appcompat-v7:23.0.1] C:\Users\Galadar\AndroidStudioProjects\StockXchange2\app\build\intermediates\exploded-aar\com.android.support\appcompat-v7\23.0.1\AndroidManifest.xml:22:5-20
 MERGED from [com.android.support:support-v4:23.0.1] C:\Users\Galadar\AndroidStudioProjects\StockXchange2\app\build\intermediates\exploded-aar\com.android.support\support-v4\23.0.1\AndroidManifest.xml:22:5-20
 MERGED from [com.android.support:support-v4:23.0.1] C:\Users\Galadar\AndroidStudioProjects\StockXchange2\app\build\intermediates\exploded-aar\com.android.support\support-v4\23.0.1\AndroidManifest.xml:22:5-20
@@ -188,6 +188,12 @@ category#android.intent.category.LAUNCHER
 ADDED from C:\Users\Galadar\AndroidStudioProjects\StockXchange2\app\src\main\AndroidManifest.xml:126:17-77
 	android:name
 		ADDED from C:\Users\Galadar\AndroidStudioProjects\StockXchange2\app\src\main\AndroidManifest.xml:126:27-74
+service#com.galadar.example.stockxchange.PriceGeneratorUpdate
+ADDED from C:\Users\Galadar\AndroidStudioProjects\StockXchange2\app\src\main\AndroidManifest.xml:130:9-133:19
+	android:exported
+		ADDED from C:\Users\Galadar\AndroidStudioProjects\StockXchange2\app\src\main\AndroidManifest.xml:132:13-37
+	android:name
+		ADDED from C:\Users\Galadar\AndroidStudioProjects\StockXchange2\app\src\main\AndroidManifest.xml:131:13-49
 uses-sdk
 INJECTED from C:\Users\Galadar\AndroidStudioProjects\StockXchange2\app\src\main\AndroidManifest.xml reason: use-sdk injection requested
 MERGED from [com.android.support:appcompat-v7:23.0.1] C:\Users\Galadar\AndroidStudioProjects\StockXchange2\app\build\intermediates\exploded-aar\com.android.support\appcompat-v7\23.0.1\AndroidManifest.xml:20:5-43

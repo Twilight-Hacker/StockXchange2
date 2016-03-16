@@ -15,6 +15,8 @@ import java.util.ArrayList;
 
 public class MemoryDB extends SQLiteOpenHelper {
 
+    //TODO Set funtions for procedures update owned shares -> update player mony -> COMMIT / if fail, rollback, to ensure DB stability
+
     public static final String DATABASE_NAME = "Galadar.DBStockXChange.db";
     public static final int DATABASE_VER = 10;
     public static final String ALL_TABLES_COLUMN_ID = "_id";

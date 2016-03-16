@@ -49,6 +49,8 @@ public class BuyActivity extends AppCompatActivity {
         owned = data.getInt("Owned");
         totalShares = data.getInt("totalShares");
 
+        //TODO Player cannot buy more that 10% of total shares in a single transaction
+
         String title = getString(R.string.BuyActivityTitle) +" "+ Sname + " "+getString(R.string.shares);
         this.setTitle(title);
 

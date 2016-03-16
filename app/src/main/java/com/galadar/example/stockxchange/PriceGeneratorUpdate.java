@@ -27,7 +27,7 @@ public class PriceGeneratorUpdate extends IntentService {
     final int DOUBLE_SHARES = 5;
     final int HALF_SHARES = 6;
 
-    boolean dayOpen;
+    boolean dayOpen = MainActivity.dayOpen;
     Message message;
     Finance f = MainActivity.getFinance();
     Handler handler = new Handler(getMainLooper());
@@ -39,15 +39,22 @@ public class PriceGeneratorUpdate extends IntentService {
      *
      * @see IntentService
      */
+
+
     // TODO: Customize helper method
+    // TODO: Get the service to change prices in RAM tables
+    // This way, MainActivity can focus on the DB without calculations, and activities can become syncronised by broadcasting changes on the activities.
+    // Broadcast the Specific Element Update Intent
+    // Use Messages for Player Transactions Data only
+
     private void callforTransactions() {
-        if(!dayOpen) return;
+        //if(!dayOpen) return; TODO Do not fire if !dayopen
         int temp;
         Random random = new Random();
 
         for(int i=0;i<f.getNumComp();i++) {
             if (f.getCompCurrValue(i) <= 0){ //If Company bankrupt, sell all shares.
-                if(f.getShareCurrPrince(i)>100){
+                if(f.getShareCurrPrince(i)>100){ //If the company is bunkrupting, sell all shares until price < $1
                     Intent intent = new Intent("SharesTransaction");
                     Bundle data = new Bundle();
                     data.putInt("SID", i);
@@ -121,7 +128,7 @@ public class PriceGeneratorUpdate extends IntentService {
             dnewPrice = ((double)oldPrice+dnewPrice)/2;
 
 /*
-            TODO relegate control for this in MainActivity handler on PRICE_UPDATE message received to change remaining and total shares and then fire specific SID change request, ignoring the previous message
+            //TODO relegate control for this in MainActivity handler on PRICE_UPDATE message received to change remaining and total shares and then fire specific SID change request, ignoring the previous message
             if(dnewPrice>35000){
                 message = new Message();
                 message.arg1=SID;
@@ -147,7 +154,7 @@ public class PriceGeneratorUpdate extends IntentService {
                 newPrice=50+(int)Math.round(Math.random() * 30);   //No price less than $0.50
             }
 
-            Message message = new Message();
+            message = new Message();
             message.arg1=SID;
             message.arg2=newPrice;
             message.what = PRICE_UPDATE;
@@ -157,7 +164,7 @@ public class PriceGeneratorUpdate extends IntentService {
     };
 
     private double getNewPrice(double cap, double x){
-        //TODO coordinate this to get data from MainActivity Finance
+        //TODO coordinate this to get data from MainActivity Finance, this funtion should recieve only sid as parameter and return new price, or better yet, message new price to Main
         x = 0.5-x;                          //To center at 0, reversing sign
         return 0.5 * cap + 1.5 * cap / (1 + Math.exp(x));
     }
@@ -171,35 +178,21 @@ public class PriceGeneratorUpdate extends IntentService {
             int oldPrice = data.getInt("atPrice");
             int days = data.getInt("Days");
 
-            f.ShortShare(SID, amount, days);
-            p.alterMoney(amount * oldPrice);
-            if(fullGame)DBHandler.ShortShare(SID, amount, time.totalDays(days), p.getMoney());
-
-            amount = Math.round(amount/2);
-            f.alterRemShares(SID, amount);
-            int remaining = f.getRemShares(SID);
-            if(fullGame)DBHandler.setRemShares(SID, remaining);
-
-            UpdateCommandsUI();
+            message = new Message();
+            Bundle bundle = new Bundle();
+            message.arg1=SID;
+            bundle.putInt("amount", amount);
+            bundle.putInt("atPrice", oldPrice);
+            bundle.putInt("Days", days);
+            message.setData(bundle);
+            message.what = SHORT_TRANSACTION;
+            handler.sendMessage(message);
+            //Take care of remaining shares as well
 
             int newPrice;
             double cap = (2*f.getCap(SID) + f.getAvg(SID))/3;
             double dnewPrice = getNewPrice(cap, (double)f.getRemShares(SID)/f.getTotalShares(SID)) + Math.random()*35;
 
-
-            if(dnewPrice>65000){
-                f.doubleShares(SID);
-                cap = (2*f.getCap(SID) + f.getAvg(SID))/3;
-                if(fullGame)DBHandler.setCompTotalShares(SID, f.getTotalShares(SID));
-                editNews(25, getString(R.string.NewsDoubleShares, f.getName(SID)), getString(R.string.NewsDoubleSharesBody, f.getName(SID)));
-                dnewPrice = getNewPrice(cap, (double)f.getRemShares(SID)/f.getTotalShares(SID)) + Math.random()*35;
-            } else if(dnewPrice<1800){
-                f.halfShares(SID);
-                cap = (2*f.getCap(SID) + f.getAvg(SID))/3;
-                if(fullGame)DBHandler.setCompTotalShares(SID, f.getTotalShares(SID));
-                editNews(25, getString(R.string.NewsHalfShares, f.getName(SID)), getString(R.string.NewsHalfSharesBody, f.getName(SID)));
-                dnewPrice = getNewPrice(cap, (double)f.getRemShares(SID)/f.getTotalShares(SID)) + Math.random()*35;
-            }
 
             newPrice = (int)Math.round(dnewPrice);
 
@@ -208,17 +201,11 @@ public class PriceGeneratorUpdate extends IntentService {
             }
 
 
-            f.setShareCurrPrice(SID, newPrice);
-            if(fullGame)DBHandler.setDBCurrPrice(SID, newPrice);
-
-            Intent intent1 = new Intent("SpecificPriceChange");
-            Bundle data1 = new Bundle();
-            data1.putInt("SID", SID);
-            data1.putInt("newPrice", newPrice);
-            data1.putInt("oldPrice", oldPrice);
-            data1.putBoolean("PlayerOwner", f.getSharesOwned(SID)>0);
-            intent1.putExtras(data1);
-            LocalBroadcastManager.getInstance(MainActivity.this).sendBroadcast(intent1);
+            message = new Message();
+            message.arg1=SID;
+            message.arg2=newPrice;
+            message.what = PRICE_UPDATE;
+            handler.sendMessage(message);
         }
     };
 
@@ -236,6 +223,34 @@ public class PriceGeneratorUpdate extends IntentService {
 
     @Override
     protected void onHandleIntent(Intent intent) {
+
+        Bundle data;
+
+        if(intent.getAction().equalsIgnoreCase("FireAll")){
+            callforTransactions();
+        } else { //Assume fire specific
+            data = intent.getExtras();
+            int SID = data.getInt("SID");
+            double cap = data.getDouble("CAP");
+            int remaining = data.getInt("Remaining");
+            int total = data.getInt("Total");
+
+            double dnewPrice = getNewPrice(cap, (double)remaining/total) + Math.random()*35;
+
+
+            int newPrice = (int)Math.round(dnewPrice);
+
+            if(newPrice<=50) {
+                newPrice=50+(int)Math.round(Math.random() * 30);   //No price less than $0.50
+            }
+
+
+            message = new Message();
+            message.arg1=SID;
+            message.arg2=newPrice;
+            message.what = PRICE_UPDATE;
+            handler.sendMessage(message);
+        }
 
     }
 
