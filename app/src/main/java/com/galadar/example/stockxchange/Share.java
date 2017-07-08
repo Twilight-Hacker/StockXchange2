@@ -10,12 +10,11 @@ public class Share {
     int prevDayClose;
     int sid;
     String name;
+    int total;
 
     public int getTotalShares() {
         return total;
     }
-
-    int total;
 
     public Share(String name, int sid, int currentSharePrice, int total) {
         this.name = name;

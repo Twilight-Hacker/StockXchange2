@@ -20,6 +20,7 @@ public class Finance {
     int[][] Shares;
     long[][] Companies;
     int[][] Short;
+    int[][] ShareDayLimits; //For storing shares data (OPEN-HIGH-LOW-CLOSE) for the day. Update during day as price changes, then record.
     Company company;
     Share share;
     int numComp;
@@ -30,6 +31,7 @@ public class Finance {
         Shares = new int[numComp][5];
         Names = new String[numComp];
         Short = new int[numComp][2];
+        ShareDayLimits = new int[numComp][4];
         CompaniesNames = new HashSet<>();
         Scams = new HashSet<>();
         ScamResolution = new int[numComp][2];
@@ -53,6 +55,10 @@ public class Finance {
                 Shares[i][2] = company.getTotalShares();
                 Shares[i][3] = share.getPrevDayClose();
                 Shares[i][4] = Math.round(share.getTotalShares() / 2);
+                ShareDayLimits[i][0] = -1;
+                ShareDayLimits[i][1] = -1;
+                ShareDayLimits[i][2] = -1;
+                ShareDayLimits[i][3] = -1;
                 Short[i][0] = 0; //Amount to Settle
                 Short[i][1] = -1; //Remaining days
                 ScamResolution[i][0]=0;
@@ -110,6 +116,7 @@ public class Finance {
         Shares = new int[numComp][5];
         Names = new String[numComp];
         Short = new int[numComp][2];
+        ShareDayLimits = new int[numComp][4];
         CompaniesNames = new HashSet<>();
         Scams = new HashSet<>();
         for(int i=0; i<DBHandler.getMaxSID();i++){
@@ -132,6 +139,10 @@ public class Finance {
             Companies[i][5] = DBHandler.getInvestment(name);
             Companies[i][6] = Math.round(DBHandler.getCompMarketShare(name) * 1000);
             Companies[i][7] = DBHandler.getCompCurrValue(name);
+            ShareDayLimits[i][0] = -1;
+            ShareDayLimits[i][1] = -1;
+            ShareDayLimits[i][2] = -1;
+            ShareDayLimits[i][3] = -1;
             Shares[i][0] = DBHandler.getDBCurrPrice(i);
             Shares[i][1] = DBHandler.getOwnedShare(i);
             Shares[i][2] = DBHandler.getTotalShares(i);
@@ -187,6 +198,7 @@ public class Finance {
         Shares = new int[numComp][5];
         Names = new String[numComp];
         Short = new int[numComp][2];
+        ShareDayLimits = new int[numComp][4];
         Scams = new HashSet<>();
         CompaniesNames = new HashSet<>();
         ScamResolution = new int[numComp][2];
@@ -207,6 +219,10 @@ public class Finance {
                 Companies[i][5] = company.getInvestment();
                 Companies[i][6] = (int)Math.round(company.getMarketShare()*1000);
                 Companies[i][7] = company.getCurrentValue();
+                ShareDayLimits[i][0] = -1;
+                ShareDayLimits[i][1] = -1;
+                ShareDayLimits[i][2] = -1;
+                ShareDayLimits[i][3] = -1;
                 Shares[i][0] = share.getCurrentSharePrice();
                 Shares[i][1] = 0; //Amount Owned
                 Shares[i][2] = company.getTotalShares();
@@ -322,6 +338,7 @@ public class Finance {
     public void DayCloseShares(){
         for(int i=0;i<Shares.length;i++){
             Shares[i][3]=Shares[i][0];
+            ShareDayLimits[i][3] = Shares[i][0];
             if(Short[i][1]>=0) {
                 Short[i][1]--;
             }
@@ -330,6 +347,17 @@ public class Finance {
             }
             updCompCurrValue(i, getCompRevenue(i));
             ResetCompRevenue(i);
+        }
+    }
+
+    public void DayOpenShares() {
+        for (int i = 0; i < Shares.length; i++) {
+            ShareDayLimits[i][0] = Shares[i][0];
+            if(ShareDayLimits[i][1]==-1){
+                ShareDayLimits[i][1] = Shares[i][0];
+                ShareDayLimits[i][2] = Shares[i][0];
+                ShareDayLimits[i][3] = Shares[i][0];
+            }
         }
     }
 
@@ -351,6 +379,20 @@ public class Finance {
 
     public void setShareCurrPrice(int id, int price){
         Shares[id][0] = price;
+        if(ShareDayLimits[id][0]==-1){
+            ShareDayLimits[id][0]=price;
+            ShareDayLimits[id][1]=price;
+            ShareDayLimits[id][2]=price;
+            ShareDayLimits[id][3]=price;
+        } else {
+            if(price>ShareDayLimits[id][1])ShareDayLimits[id][1]=price;
+            else if(price<ShareDayLimits[id][2])ShareDayLimits[id][2]=price;
+        }
+    }
+
+    int[] getShareCandleData(int sid){
+        int[] data = {ShareDayLimits[sid][0],ShareDayLimits[sid][1],ShareDayLimits[sid][2],ShareDayLimits[sid][3]};
+        return data;
     }
 
     public int getSharesOwned(int id){
@@ -502,7 +544,13 @@ public class Finance {
         ScamResolution[sid][1]=totalDays;
     }
 
-    public void removeScam(int i){
+    public void removeExecutedScam(int i){
+        Scams.remove(getName(i));
+        ScamResolution[i][0]=0;
+        ScamResolution[i][1]=-1;
+    }
+
+    public void removeCalledScam(int i){
         Scams.remove(getName(i));
         ScamResolution[i][0]=0;
         ScamResolution[i][1]=-1;

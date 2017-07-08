@@ -15,9 +15,8 @@ ADDED from C:\Users\Galadar\AndroidStudioProjects\StockXchange2\app\src\main\And
 		INJECTED from C:\Users\Galadar\AndroidStudioProjects\StockXchange2\app\src\main\AndroidManifest.xml
 application
 ADDED from C:\Users\Galadar\AndroidStudioProjects\StockXchange2\app\src\main\AndroidManifest.xml:5:5-134:19
-MERGED from [com.android.support:appcompat-v7:23.0.1] C:\Users\Galadar\AndroidStudioProjects\StockXchange2\app\build\intermediates\exploded-aar\com.android.support\appcompat-v7\23.0.1\AndroidManifest.xml:22:5-20
-MERGED from [com.android.support:support-v4:23.0.1] C:\Users\Galadar\AndroidStudioProjects\StockXchange2\app\build\intermediates\exploded-aar\com.android.support\support-v4\23.0.1\AndroidManifest.xml:22:5-20
-MERGED from [com.android.support:support-v4:23.0.1] C:\Users\Galadar\AndroidStudioProjects\StockXchange2\app\build\intermediates\exploded-aar\com.android.support\support-v4\23.0.1\AndroidManifest.xml:22:5-20
+MERGED from [com.android.support:appcompat-v7:23.0.1] C:\Users\Galadar\.android\build-cache\33edab3039074f4d731e565c11fdec0a00e9393f\output\AndroidManifest.xml:22:5-20
+MERGED from [com.android.support:support-v4:23.0.1] C:\Users\Galadar\.android\build-cache\b014c9b31cc6370b20bbbd7ac6c8b94f45adc841\output\AndroidManifest.xml:22:5-20
 	android:label
 		ADDED from C:\Users\Galadar\AndroidStudioProjects\StockXchange2\app\src\main\AndroidManifest.xml:8:9-41
 	android:allowBackup
@@ -196,9 +195,8 @@ ADDED from C:\Users\Galadar\AndroidStudioProjects\StockXchange2\app\src\main\And
 		ADDED from C:\Users\Galadar\AndroidStudioProjects\StockXchange2\app\src\main\AndroidManifest.xml:131:13-49
 uses-sdk
 INJECTED from C:\Users\Galadar\AndroidStudioProjects\StockXchange2\app\src\main\AndroidManifest.xml reason: use-sdk injection requested
-MERGED from [com.android.support:appcompat-v7:23.0.1] C:\Users\Galadar\AndroidStudioProjects\StockXchange2\app\build\intermediates\exploded-aar\com.android.support\appcompat-v7\23.0.1\AndroidManifest.xml:20:5-43
-MERGED from [com.android.support:support-v4:23.0.1] C:\Users\Galadar\AndroidStudioProjects\StockXchange2\app\build\intermediates\exploded-aar\com.android.support\support-v4\23.0.1\AndroidManifest.xml:20:5-43
-MERGED from [com.android.support:support-v4:23.0.1] C:\Users\Galadar\AndroidStudioProjects\StockXchange2\app\build\intermediates\exploded-aar\com.android.support\support-v4\23.0.1\AndroidManifest.xml:20:5-43
+MERGED from [com.android.support:appcompat-v7:23.0.1] C:\Users\Galadar\.android\build-cache\33edab3039074f4d731e565c11fdec0a00e9393f\output\AndroidManifest.xml:20:5-43
+MERGED from [com.android.support:support-v4:23.0.1] C:\Users\Galadar\.android\build-cache\b014c9b31cc6370b20bbbd7ac6c8b94f45adc841\output\AndroidManifest.xml:20:5-43
 	android:targetSdkVersion
 		INJECTED from C:\Users\Galadar\AndroidStudioProjects\StockXchange2\app\src\main\AndroidManifest.xml
 		INJECTED from C:\Users\Galadar\AndroidStudioProjects\StockXchange2\app\src\main\AndroidManifest.xml

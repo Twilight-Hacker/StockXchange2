@@ -9,12 +9,14 @@ import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AppCompatActivity;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.SurfaceHolder;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 
-public class ShareActivity extends AppCompatActivity {
+public class ShareActivity extends AppCompatActivity implements SurfaceHolder.Callback{
 
+    //TODO: retrieve and show history data. remember that DB data do NOT include current day, the last element data point must be added seperately here or in Main. Verify First data point. If -1, nothing was retrieved.
     static Daytime time;
     static boolean playSound;
     static Finance f;
@@ -24,6 +26,10 @@ public class ShareActivity extends AppCompatActivity {
     static String name;
     static int level;
     static int assets;
+    ChartSurface chart;
+    Candle[] candleData;
+    int[] Dates;
+    int[] LineData;
     static boolean dayOpen;
 
     @Override
@@ -40,6 +46,32 @@ public class ShareActivity extends AppCompatActivity {
         f = MainActivity.getFinance();
         dayOpen = data.getBoolean("dayOpen");
         playSound = data.getBoolean("playSound");
+        int[][] history = (int[][])data.getSerializable("History");
+        int[] curr = f.getShareCandleData(SID);
+        int[] compData = data.getIntArray("CompanyHistory");
+
+        if(history[0][0]!=-1) {
+            int[] Dates = new int[history.length+1];
+            candleData = new Candle[history.length+1];
+            LineData = new int[compData.length+1];
+            for (int i = 0; i < history.length; i++) {
+                Dates[i] = history[i][0];
+                candleData[i] = new Candle(history[i][1], history[i][2], history[i][3], history[i][4]);
+            }
+            for (int i=0;i<compData.length;i++){
+                LineData[i] = compData[i];
+            }
+            Dates[history.length] = time.totalDays();
+            candleData[history.length] = new Candle(curr[0], curr[1], curr[2], curr[3]);
+            LineData[compData.length] = (int)f.getCompCurrValue(SID);
+        } else {
+            int[] Dates = new int[1];
+            Dates[0] = time.totalDays();
+            LineData = new int[1];
+            candleData = new Candle[1];
+            candleData[0] = new Candle(curr[0], curr[1], curr[2], curr[3]);
+            LineData[0] = (int)f.getCompCurrValue(SID);
+        }
 
         String title = f.getName(SID) + " " + getString(R.string.title_activity_share);
         this.setTitle(title);
@@ -50,6 +82,9 @@ public class ShareActivity extends AppCompatActivity {
 
         TextView ShareName = (TextView)findViewById(R.id.ShareNameData);
         ShareName.setText(f.getName(SID));
+
+        chart = (ChartSurface)findViewById(R.id.ShareHistory);
+        chart.generateCandle(this, f.getName(SID), candleData, Dates);
 
         final TextView SharePrice = (TextView)findViewById(R.id.ShareCurrPriData);
         price = f.getShareCurrPrince(SID);
@@ -123,6 +158,8 @@ public class ShareActivity extends AppCompatActivity {
                 data.putLong("Pmoney", money);
                 data.putInt("level", level);
                 data.putInt("assets", assets);
+                data.putIntArray("Dates", Dates);
+                data.putSerializable("LineData", LineData);
                 intent.putExtras(data);
                 startActivity(intent);
                 ShareActivity.this.finish();
@@ -275,4 +312,18 @@ public class ShareActivity extends AppCompatActivity {
         return super.onOptionsItemSelected(item);
     }
 
+    @Override
+    public void surfaceCreated(SurfaceHolder holder) {
+        chart.finalizeSurface(holder);
+    }
+
+    @Override
+    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+        chart.createCandleChart();
+    }
+
+    @Override
+    public void surfaceDestroyed(SurfaceHolder holder) {
+
+    }
 }

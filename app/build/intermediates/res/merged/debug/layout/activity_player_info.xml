@@ -130,6 +130,18 @@
                 android:text="@string/Player_Net_Value"
                 android:textSize="20sp" />
 
+            <TextView
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:background="@color/black"
+                android:textColor="@color/black"
+                android:id="@+id/PlFame"
+                android:layout_alignParentLeft="true"
+                android:layout_alignParentStart="true"
+                android:layout_below="@id/PlNetWorth"
+                android:text="@string/Player_Net_Value"
+                android:textSize="20sp"/>
+
         </RelativeLayout>
 
         <RelativeLayout
@@ -208,6 +220,21 @@
                 android:text="$1350000"
                 android:textSize="20sp" />
 
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@color/black"
+                android:textColor="@color/black"
+                android:id="@+id/PlFameDt"
+                android:singleLine="false"
+                android:ellipsize="none"
+                android:lines="1"
+                android:layout_alignParentRight="true"
+                android:layout_alignParentEnd="true"
+                android:layout_below="@id/PlNetWorthDt"
+                android:text="$1350000"
+                android:textSize="20sp" />
+
         </RelativeLayout>
 
     </LinearLayout>
@@ -222,7 +249,7 @@
 
         <Button
             android:layout_width="0dp"
-            android:layout_weight="0.5"
+            android:layout_weight="0.3"
             android:layout_height="wrap_content"
             android:id="@+id/OK"
             android:text="@string/OK"
@@ -231,7 +258,17 @@
 
         <Button
             android:layout_width="0dp"
-            android:layout_weight="0.5"
+            android:layout_weight="0.3"
+            android:layout_height="wrap_content"
+            android:id="@+id/LaunchEvent"
+            android:text="@string/Event"
+            android:enabled="false"
+            android:textColor="@color/black"
+            android:background="@color/black"/>
+
+        <Button
+            android:layout_width="0dp"
+            android:layout_weight="0.4"
             android:layout_height="wrap_content"
             android:id="@+id/LevelUp"
             android:text="@string/LevelUp"
@@ -243,4 +280,3 @@
 
     </RelativeLayout>
 </LinearLayout>
-<!-- From: file:/C:/Users/Galadar/AndroidStudioProjects/StockXchange2/app/src/main/res/layout/activity_player_info.xml -->

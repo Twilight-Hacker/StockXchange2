@@ -12,13 +12,10 @@ import java.util.ArrayList;
  * Created by Galadar on 11/10/2015.
  */
 
-
 public class MemoryDB extends SQLiteOpenHelper {
 
-    //TODO Set funtions for procedures update owned shares -> update player mony -> COMMIT / if fail, rollback, to ensure DB stability
-
     public static final String DATABASE_NAME = "Galadar.DBStockXChange.db";
-    public static final int DATABASE_VER = 10;
+    public static final int DATABASE_VER = 11;
     public static final String ALL_TABLES_COLUMN_ID = "_id";
 
     public static final String COMPANIES_TABLE_NAME = "Companies";
@@ -64,6 +61,24 @@ public class MemoryDB extends SQLiteOpenHelper {
     public static final String SHORT_COLUMN_SID = "sid";
     public static final String SHORT_COLUMN_AMOUNT = "amount";
     public static final String SHORT_COLUMN_TOTAL_SETTLE_DAYS = "totalDays";
+
+    public static final String COMPANY_HISTORY_TABLE_NAME = "CHistory";
+    public static final String COMPANY_HISTORY_COLUMN_ID = "cid";
+    public static final String COMPANY_HISTORY_COLUMN_DAY = "day";
+    public static final String COMPANY_HISTORY_COLUMN_VALUE = "value";
+
+    public static final String SHARE_HISTORY_TABLE_NAME = "SHistory";
+    public static final String SHARE_HISTORY_COLUMN_ID = "sid";
+    public static final String SHARE_HISTORY_COLUMN_DAY = "day";
+    public static final String SHARE_HISTORY_COLUMN_HIGH = "high";
+    public static final String SHARE_HISTORY_COLUMN_LOW = "low";
+    public static final String SHARE_HISTORY_COLUMN_OPEN = "open";
+    public static final String SHARE_HISTORY_COLUMN_CLOSE = "close";
+
+    public static final String PLAYER_HISTORY_TABLE_NAME = "PHistory";
+    public static final String PLAYER_HISTORY_COLUMN_DAY = "day";
+    public static final String PLAYER_HISTORY_COLUMN_ACTION = "action";
+
 
     public static final String EVENTS_TABLE_NAME = "Events";
     public static final String EVENTS_COLUMN_TYPE = "title";
@@ -155,14 +170,47 @@ public class MemoryDB extends SQLiteOpenHelper {
                         ");"
         );
 
-                db.execSQL(
-                        "CREATE TABLE " + EVENTS_TABLE_NAME + "(" +
-                                ALL_TABLES_COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
-                                EVENTS_COLUMN_MAGNITUDE + " INTEGER NOT NULL, " +
-                                EVENTS_COLUMN_TYPE + " INTEGER NOT NULL, " +
-                                EVENTS_COLUMN_END_DAY + " INTEGER NOT NULL" +
-                                ");"
-                );
+        db.execSQL(
+                "CREATE TABLE " + EVENTS_TABLE_NAME + "(" +
+                        ALL_TABLES_COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                        EVENTS_COLUMN_MAGNITUDE + " INTEGER NOT NULL, " +
+                        EVENTS_COLUMN_TYPE + " INTEGER NOT NULL, " +
+                        EVENTS_COLUMN_END_DAY + " INTEGER NOT NULL" +
+                        ");"
+        );
+
+        db.execSQL(
+                "CREATE TABLE " + SHARE_HISTORY_TABLE_NAME + "(" +
+                        ALL_TABLES_COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                        SHARE_HISTORY_COLUMN_ID + " INTEGER NOT NULL, " +
+                        SHARE_HISTORY_COLUMN_DAY + " INTEGER, " +
+                        SHARE_HISTORY_COLUMN_HIGH + " INTEGER, " +
+                        SHARE_HISTORY_COLUMN_LOW + " INTEGER, " +
+                        SHARE_HISTORY_COLUMN_OPEN + " INTEGER, " +
+                        SHARE_HISTORY_COLUMN_CLOSE + " INTEGER, " +
+                        " FOREIGN KEY (" + SHARE_HISTORY_COLUMN_ID + ") REFERENCES " + SHARES_TABLE_NAME + "(" + SHARES_COLUMN_SID + ") ON DELETE CASCADE ON UPDATE CASCADE" +
+                        ");"
+        );
+
+        db.execSQL(
+                "CREATE TABLE " + COMPANY_HISTORY_TABLE_NAME + "(" +
+                        ALL_TABLES_COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                        COMPANY_HISTORY_COLUMN_ID + " INTEGER NOT NULL, " +
+                        COMPANY_HISTORY_COLUMN_DAY + " INTEGER, " +
+                        COMPANY_HISTORY_COLUMN_VALUE + " INTEGER, " +
+                        " FOREIGN KEY (" + COMPANY_HISTORY_COLUMN_ID + ") REFERENCES " + COMPANIES_TABLE_NAME + "(" + COMPANIES_COLUMN_CID + ") ON DELETE CASCADE ON UPDATE CASCADE" +
+                        ");"
+        );
+
+        db.execSQL(
+                "CREATE TABLE " + PLAYER_HISTORY_TABLE_NAME + "(" +
+                        ALL_TABLES_COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                        PLAYER_HISTORY_COLUMN_DAY + " INTEGER, " +
+                        PLAYER_HISTORY_COLUMN_ACTION + " TEXT, " +
+                        ");"
+        );
+
+
     }
 
     @Override
@@ -177,6 +225,79 @@ public class MemoryDB extends SQLiteOpenHelper {
             values.put(DATA_COLUMN_ENTRY_VALUE, 40);
             db.insert(DATA_TABLE_NAME, null, values);
         }
+
+        if(oldVersion<=10){
+            db.execSQL(
+                    "CREATE TABLE " + SHARE_HISTORY_TABLE_NAME + "(" +
+                            ALL_TABLES_COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                            SHARE_HISTORY_COLUMN_ID + " INTEGER NOT NULL, " +
+                            SHARE_HISTORY_COLUMN_DAY + " INTEGER, " +
+                            SHARE_HISTORY_COLUMN_HIGH + " INTEGER, " +
+                            SHARE_HISTORY_COLUMN_LOW + " INTEGER, " +
+                            SHARE_HISTORY_COLUMN_OPEN + " INTEGER, " +
+                            SHARE_HISTORY_COLUMN_CLOSE + " INTEGER, " +
+                            " FOREIGN KEY (" + SHARE_HISTORY_COLUMN_ID + ") REFERENCES " + SHARES_TABLE_NAME + "(" + SHARES_COLUMN_SID + ") ON DELETE CASCADE ON UPDATE CASCADE" +
+                            ");"
+            );
+
+            db.execSQL(
+                    "CREATE TABLE " + COMPANY_HISTORY_TABLE_NAME + "(" +
+                            ALL_TABLES_COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                            COMPANY_HISTORY_COLUMN_ID + " INTEGER NOT NULL, " +
+                            COMPANY_HISTORY_COLUMN_DAY + " INTEGER, " +
+                            COMPANY_HISTORY_COLUMN_VALUE + " INTEGER, " +
+                            " FOREIGN KEY (" + COMPANY_HISTORY_COLUMN_ID + ") REFERENCES " + COMPANIES_TABLE_NAME + "(" + COMPANIES_COLUMN_CID + ") ON DELETE CASCADE ON UPDATE CASCADE" +
+                            ");"
+            );
+
+            db.execSQL(
+                    "CREATE TABLE " + PLAYER_HISTORY_TABLE_NAME + "(" +
+                            ALL_TABLES_COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                            PLAYER_HISTORY_COLUMN_DAY + " INTEGER, " +
+                            PLAYER_HISTORY_COLUMN_ACTION + " TEXT, " +
+                            ");"
+            );
+
+        }
+    }
+
+    /*
+    This method is called to add player actions to history. Called from main Finance object on every action taken (Buy, Sell, Short)
+     */
+    void RecordPlayerAction(int day, String actionString){
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(PLAYER_HISTORY_COLUMN_DAY, day);
+        values.put(PLAYER_HISTORY_COLUMN_ACTION, actionString);
+        db.insert(PLAYER_HISTORY_TABLE_NAME, null, values);
+        db.close();
+    }
+
+    /*
+    Retrieves all recorded player actions
+     */
+    String[] GetPlayerHistory(){
+        String[] history;
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor c =  db.rawQuery("select * from " + PLAYER_HISTORY_TABLE_NAME + ";", null);
+        if(c.getCount()>0) {
+            history = new String[c.getCount()];
+            c.moveToFirst();
+            int k = 0;
+            while (!c.isAfterLast()) {
+                history[k] = "Day " + c.getInt(c.getColumnIndex(PLAYER_HISTORY_COLUMN_DAY)) + ": " + c.getString(c.getColumnIndex(PLAYER_HISTORY_COLUMN_ACTION));
+                c.moveToNext();
+                k++;
+            }
+        } else {
+            history = new String[1];
+            history[0] = "No history available yet.";
+        }
+        c.close();
+        db.close();
+        return history;
+
+
     }
 
     public void addScam(int sid, int type, int totalDays){
@@ -216,13 +337,13 @@ public class MemoryDB extends SQLiteOpenHelper {
         return days;
     }
 
-    public void ShortShare(int sid, int NewAmount, int days, long Pmoney){ //SEND TOTAL DAYS
+    public void ShortShare(int sid, int NewAmount, int currPrice, int days, long Pmoney){ //SEND TOTAL DAYS
         SQLiteDatabase db = this.getWritableDatabase();
         Cursor c =  db.rawQuery("select " + SHORT_COLUMN_AMOUNT + " from " + SHORT_TABLE_NAME + " where " + SHORT_COLUMN_SID + "=" + sid + " AND " + SHORT_COLUMN_TOTAL_SETTLE_DAYS + "=" + days + ";", null);
+        ContentValues values = new ContentValues();
         if(c.getCount()==0) {
             String where = SHORT_COLUMN_SID+"=?";
             String[] args = {Integer.toString(sid)};
-            ContentValues values = new ContentValues();
             values.put(SHORT_COLUMN_AMOUNT, NewAmount);
             values.put(SHORT_COLUMN_TOTAL_SETTLE_DAYS, days);
             db.update(SHORT_TABLE_NAME, values, where, args);
@@ -232,7 +353,6 @@ public class MemoryDB extends SQLiteOpenHelper {
             NewAmount+=amount;
             String where = SHORT_COLUMN_SID+"=?";
             String[] args = {Integer.toString(sid)};
-            ContentValues values = new ContentValues();
             values.put(SHORT_COLUMN_AMOUNT, NewAmount);
             db.update(SHORT_TABLE_NAME, values, where, args);
         }
@@ -447,14 +567,57 @@ public class MemoryDB extends SQLiteOpenHelper {
         db.close();
     }
 
-    public void DayCloseShare(int sid, int price){
+    /*
+    THIS RECORDS THE DATA FOR EACH SHARE. DATA IN HISTORY IS OPEN-HIGH-LOW-CLOSE..
+     */
+    public void DayCloseShare(int sid, int price, int day, int[] data){
         SQLiteDatabase db = this.getWritableDatabase();
         String where = SHARES_COLUMN_SID+"=?";
         String[] args = {Integer.toString(sid)};
         ContentValues values = new ContentValues();
         values.put(SHARES_COLUMN_LAST_CLOSE, price);
         db.update(SHARES_TABLE_NAME, values, where, args);
+        values.clear();
+        values.put(SHARE_HISTORY_COLUMN_ID, sid);
+        values.put(SHARE_HISTORY_COLUMN_DAY, day);
+        values.put(SHARE_HISTORY_COLUMN_OPEN, data[0]);
+        values.put(SHARE_HISTORY_COLUMN_HIGH, data[1]);
+        values.put(SHARE_HISTORY_COLUMN_LOW, data[2]);
+        values.put(SHARE_HISTORY_COLUMN_CLOSE, data[3]);
+        db.insert(SHARE_HISTORY_TABLE_NAME, null, values);
         db.close();
+    }
+
+    /*
+    THIS RETRIEVES THE DATA FOR EACH SHARE. DATA IN HISTORY IS OPEN-HIGH-LOW-CLOSE. DATA RETRIEVED ORDERED BY DAY.
+     */
+    int[][] RetrieveShareCandleData(int sid){
+        int[][] data;
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor c =  db.rawQuery("select * from " + SHARE_HISTORY_TABLE_NAME + " where " + SHARES_COLUMN_SID + "=" + sid + " ORDER BY " + SHARE_HISTORY_COLUMN_DAY + "ASC;", null);
+        if(c.getCount()>0) {
+            data = new int[c.getCount()][5];
+            c.moveToFirst();
+            int k = 0;
+            while (!c.isAfterLast()) {
+                data[k][0] = c.getInt(c.getColumnIndex(SHARE_HISTORY_COLUMN_DAY));
+                data[k][1] = c.getInt(c.getColumnIndex(SHARE_HISTORY_COLUMN_OPEN));
+                data[k][2] = c.getInt(c.getColumnIndex(SHARE_HISTORY_COLUMN_HIGH));
+                data[k][3] = c.getInt(c.getColumnIndex(SHARE_HISTORY_COLUMN_LOW));
+                data[k][4] = c.getInt(c.getColumnIndex(SHARE_HISTORY_COLUMN_CLOSE));
+                c.moveToNext();
+                k++;
+            }
+        } else {
+            data = new int[1][4];
+            data[0][0] = -1;
+            data[0][1] = -1;
+            data[0][2] = -1;
+            data[0][3] = -1;
+        }
+        c.close();
+        db.close();
+        return data;
     }
 
     public void setRemShares(int sid, int amount){
@@ -912,6 +1075,9 @@ public class MemoryDB extends SQLiteOpenHelper {
         db.execSQL("DELETE FROM " + SHORT_TABLE_NAME + " WHERE 1;");
         db.execSQL("DELETE FROM " + SHARES_TABLE_NAME + " WHERE 1;");
         db.execSQL("DELETE FROM " + EVENTS_TABLE_NAME + " WHERE 1;");
+        db.execSQL("DELETE FROM " + SHARE_HISTORY_TABLE_NAME + " WHERE 1;");
+        db.execSQL("DELETE FROM " + COMPANY_HISTORY_TABLE_NAME + " WHERE 1;");
+        db.execSQL("DELETE FROM " + PLAYER_HISTORY_TABLE_NAME + " WHERE 1;");
     }
 
     public void bankrupt(String name) {
@@ -947,7 +1113,6 @@ public class MemoryDB extends SQLiteOpenHelper {
 
         db.close();
     }
-
 
     public int getLevel() {
         int level = 1;
@@ -997,7 +1162,6 @@ public class MemoryDB extends SQLiteOpenHelper {
         return level;
     }
 
-
     public int getMaxSID(){
         int max = 0;
         int temp;
@@ -1015,7 +1179,6 @@ public class MemoryDB extends SQLiteOpenHelper {
 
         return max;
     }
-
 
     public void setLevel(int newLevel){
         SQLiteDatabase db = this.getWritableDatabase();
@@ -1302,6 +1465,42 @@ public class MemoryDB extends SQLiteOpenHelper {
         db.close();
     }
 
+    public void setCompCurrValue(String name, long newV, int day) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        String where = COMPANIES_COLUMN_NAME+"=?";
+        String[] args = {name};
+        ContentValues values = new ContentValues();
+        values.put(COMPANIES_COLUMN_CURRENT_VALUE, newV);
+        db.update(COMPANIES_TABLE_NAME,values, where, args);
+        values.clear();
+        values.put(COMPANY_HISTORY_COLUMN_DAY, day);
+        values.put(COMPANY_HISTORY_COLUMN_VALUE, newV);
+        db.insert(COMPANY_HISTORY_TABLE_NAME, null, values);
+        db.close();
+    }
+
+    int[] getCompanyHistory(int cid){
+        int[] curr;
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor c =  db.rawQuery("select * from " + COMPANY_HISTORY_TABLE_NAME + " where " + COMPANY_HISTORY_COLUMN_ID + "=" + cid + " ORDER BY " + COMPANY_HISTORY_COLUMN_DAY + " ASC;", null);
+        if(c.getCount()>0) {
+            curr = new int[c.getCount()];
+            c.moveToFirst();
+            int k = 0;
+            while (!c.isAfterLast()) {
+                curr[k] = c.getInt(c.getColumnIndex(SHARES_COLUMN_REMAINING_SHARES));
+                c.moveToNext();
+                k++;
+            }
+        } else {
+            curr = new int[1];
+            curr[0] = -1;
+        }
+        c.close();
+        db.close();
+        return curr;
+    }
+
     public boolean isScam(int sid){
         SQLiteDatabase db = this.getReadableDatabase();
         Cursor c =  db.rawQuery("select * from " + SCAMS_TABLE_NAME + " where " + SCAMS_COLUMN_SID + "=" + sid + ";", null);
@@ -1318,6 +1517,19 @@ public class MemoryDB extends SQLiteOpenHelper {
         values.put(EVENTS_COLUMN_END_DAY, totalDays);
         db.insert(EVENTS_TABLE_NAME, null, values);
         db.close();
+    }
+
+    /*
+    To clean older history prices if deemed necessary
+     */
+    void HistoryCleanUp(int currTotalDays){
+        int lim = currTotalDays - 120;
+        SQLiteDatabase db = getWritableDatabase();
+        String where = SHARE_HISTORY_COLUMN_DAY+"<=?";
+        String[] args = {Integer.toString(lim)};
+        db.delete(SHARE_HISTORY_TABLE_NAME, where, args);
+        where = COMPANY_HISTORY_COLUMN_DAY+"<=?";
+        db.delete(COMPANY_HISTORY_TABLE_NAME, where, args);
     }
 
     public ArrayList<Event> retrieveEvents(int currentDay) {

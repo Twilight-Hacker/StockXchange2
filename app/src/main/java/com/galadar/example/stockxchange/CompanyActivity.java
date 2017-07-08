@@ -11,12 +11,14 @@ import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.SurfaceHolder;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 
-public class CompanyActivity extends AppCompatActivity {
+public class CompanyActivity extends AppCompatActivity implements SurfaceHolder.Callback{
 
+    //TODO: retrieve and show history data. remember that DB data do NOT include current day, the last element data point must be added seperately here or in Main. Verify First data point. If -1, nothing was retrieved.
 
     //static MemoryDB DBHandler;
     static Finance f;
@@ -25,6 +27,9 @@ public class CompanyActivity extends AppCompatActivity {
     static long money;
     static int level;
     static int assets;
+    int[] LineData;
+    int[] Dates;
+    ChartSurface chart;
     String zerodigit;
 
     @Override
@@ -40,6 +45,8 @@ public class CompanyActivity extends AppCompatActivity {
         money = data.getLong("Pmoney");
         level = data.getInt("level");
         assets = data.getInt("assets");
+        LineData = data.getIntArray("LineData");
+        Dates = data.getIntArray("Dates");
 
         TextView topBarPlayer = (TextView)findViewById(R.id.PlayerDataInfo);
         TextView topBarDaytime = (TextView)findViewById(R.id.DaytimeInfo);
@@ -67,6 +74,9 @@ public class CompanyActivity extends AppCompatActivity {
         int inv = f.getInvestment(CID);
         TextView InvestView = (TextView)findViewById(R.id.LastTermInvDt);
         InvestView.setText("$"+Long.toString(inv));
+
+        chart = (ChartSurface)findViewById(R.id.CompanyHistory);
+        chart.generateLine(this, f.getName(CID), LineData, Dates);
 
         Button Report = (Button)findViewById(R.id.ScamCheck);
         Report.setEnabled(assets>0);
@@ -159,4 +169,18 @@ public class CompanyActivity extends AppCompatActivity {
         DT.setText(time.DTtoString());
     }
 
+    @Override
+    public void surfaceCreated(SurfaceHolder holder) {
+        chart.finalizeSurface(holder);
+    }
+
+    @Override
+    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+        chart.createLineChart();
+    }
+
+    @Override
+    public void surfaceDestroyed(SurfaceHolder holder) {
+
+    }
 }

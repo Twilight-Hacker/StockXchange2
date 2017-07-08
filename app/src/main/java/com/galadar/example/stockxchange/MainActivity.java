@@ -553,7 +553,7 @@ public class MainActivity extends AppCompatActivity {
                                 f.Bankrupt(i);//Banctrupt company
                                 if(fullGame)DBHandler.setDBCurrPrice(i, f.getShareCurrPrince(i));
                                 if(fullGame)DBHandler.setCompTotValue(f.getName(i), f.getCompTotalValue(i));
-                                f.removeScam(i);
+                                f.removeExecutedScam(i);
                                 String story = getString(R.string.NewsBunkrupty, f.getName(i));
                                 editNews(55, getString(R.string.NewsBunkruptyTitle), story);
                             }
@@ -574,7 +574,7 @@ public class MainActivity extends AppCompatActivity {
                                 f.setCompOutlook(i, f.getCompOutlook(i) - 3.2); //Because 6 pumps in total
                                 intent1.putExtras(data1);
                                 LocalBroadcastManager.getInstance(MainActivity.this).sendBroadcast(intent1);
-                                f.removeScam(i);
+                                f.removeExecutedScam(i);
                                 String story = getString(R.string.NewsPumpDump, f.getName(i));
                                 editNews(40, getString(R.string.NewsPumpDumpTitle), story);
                             }
@@ -587,7 +587,7 @@ public class MainActivity extends AppCompatActivity {
                             if(f.getScamRemDays(i)==0){
                                 f.setCompOutlook(i, f.getCompOutlook(i) + 3.0);
                                 if(fullGame) DBHandler.setCompOutlook(f.getName(i), f.getCompOutlook(i));
-                                f.removeScam(i);
+                                f.removeExecutedScam(i);
                                 String story = getString(R.string.NewsShortDistort, f.getName(i));
                                 editNews(45, getString(R.string.NewsShortDistortTitle), story);
                             }
@@ -597,7 +597,7 @@ public class MainActivity extends AppCompatActivity {
                                 f.setCompCurrValue(i, f.getCompCurrValue(i)/2);
                                 if(fullGame)DBHandler.setDBCurrPrice(i, f.getShareCurrPrince(i));
                                 if(fullGame)DBHandler.setCompTotValue(f.getName(i), f.getCompTotalValue(i));
-                                f.removeScam(i);
+                                f.removeExecutedScam(i);
                                 String story = getString(R.string.NewsPonzi, f.getName(i));
                                 editNews(50, getString(R.string.NewsPonziTitle, f.getName(i)), story);
                             }
@@ -608,7 +608,7 @@ public class MainActivity extends AppCompatActivity {
 
                                 f.setCompOutlook(i, f.getCompOutlook(i) - magnitude * 0.05);
                                 if(magnitude>4) f.setCompCurrValue(i, f.getCompCurrValue(i) - 10000*magnitude);
-                                f.removeScam(i);
+                                f.removeExecutedScam(i);
                                 if(fullGame){
                                     DBHandler.setCompOutlook(f.getName(i), f.getCompOutlook(i));
                                     DBHandler.setCompRevenue(i, f.getCompRevenue(i));
@@ -1022,6 +1022,8 @@ public class MainActivity extends AppCompatActivity {
                     break;
             }
 
+            f.DayOpenShares();
+
             LocalBroadcastManager.getInstance(MainActivity.this).sendBroadcast(new Intent("RingBell"));
 
             Toast.makeText(MainActivity.this, getString(R.string.ToastDayStart), Toast.LENGTH_SHORT).show();
@@ -1228,7 +1230,14 @@ public class MainActivity extends AppCompatActivity {
             if(byPlayer){
                 f.TransactShares(SID, amount);
                 p.alterMoney(amount*oldPrice);
-                if(fullGame)DBHandler.TransactShare(SID, f.getSharesOwned(SID), p.getMoney());
+                if(fullGame) {
+                    DBHandler.TransactShare(SID, f.getSharesOwned(SID), p.getMoney());
+                    String ac = "";
+                    if(amount>0) ac+="Bought ";
+                    else ac+="Sold ";
+                    ac+= amount + " shares of "+f.getName(SID)+" at $"+(((float)oldPrice)/100)+" each.";
+                    DBHandler.RecordPlayerAction(time.totalDays(), ac);
+                }
 
                 UpdateCommandsUI();
             }
@@ -1293,7 +1302,7 @@ public class MainActivity extends AppCompatActivity {
 
             f.ShortShare(SID, amount, days);
             p.alterMoney(amount * oldPrice);
-            if(fullGame)DBHandler.ShortShare(SID, amount, time.totalDays(days), p.getMoney());
+            if(fullGame)DBHandler.ShortShare(SID, amount, oldPrice, time.totalDays(days), p.getMoney());
 
             amount = Math.round(amount/2);
             f.alterRemShares(SID, amount);
@@ -1392,7 +1401,7 @@ public class MainActivity extends AppCompatActivity {
 
     public static void callScam(int cid) {
         if(f.isScam(cid)){
-            f.removeScam(cid);
+            f.removeCalledScam(cid);
             if(fullGame)DBHandler.removeScam(cid);
         } else {
             p.setAssets(p.getAssets()-1);
@@ -1409,8 +1418,8 @@ public class MainActivity extends AppCompatActivity {
             f.DayCloseShares();
             if(fullGame) {
                 for (int i = 0; i < DBHandler.getMaxSID(); i++) {
-                    DBHandler.DayCloseShare(i, f.getLastClose(i));
-                    DBHandler.setCompCurrValue(f.getName(i), f.getCompCurrValue(i));
+                    DBHandler.DayCloseShare(i, f.getLastClose(i), time.totalDays(), f.getShareCandleData(i));
+                    DBHandler.setCompCurrValue(f.getName(i), f.getCompCurrValue(i), time.totalDays());
                 }
             }
 
@@ -1471,7 +1480,7 @@ public class MainActivity extends AppCompatActivity {
                 }
             } else {
                 for (int i = 0; i < f.getNumComp(); i++) {
-                    if(fullGame)DBHandler.DayCloseShare(i, f.getLastClose(i));
+                    if(fullGame)DBHandler.DayCloseShare(i, f.getLastClose(i), time.totalDays(), f.getShareCandleData(i));
                 }
                 //Updating DB to show the NEXT day (and possibly term) than the one Just ENDED
                 if (time.getDay() == 60) {
@@ -1768,6 +1777,12 @@ public class MainActivity extends AppCompatActivity {
         data.putInt("assets", p.getAssets());
         data.putInt("next", getNextLevelPreq());
         data.putLong("NetWorth", f.NetWorth());
+        if(fullGame) data.putStringArray("history", DBHandler.GetPlayerHistory());
+        else {
+            String[] values = new String[1];
+            values[0] = "History is only available at full games.";
+            data.putStringArray("history", values);
+        }
         intent.putExtras(data);
         startActivity(intent);
     }
@@ -1837,12 +1852,25 @@ public class MainActivity extends AppCompatActivity {
     public void clickPrice(View v){
         Intent intent = new Intent(MainActivity.this, ShareActivity.class);
         Bundle data = new Bundle();
-        data.putInt("SID", (v.getId() - 100000));
+        int sid = v.getId() - 100000;
+        data.putInt("SID", sid);
         data.putBoolean("playSound", playSound);
         data.putBoolean("dayOpen", dayOpen);
         data.putLong("Pmoney", p.getMoney());
         data.putInt("level", p.getLevel());
         data.putInt("assets", p.getAssets());
+        if(fullGame){
+            int[][] history = DBHandler.RetrieveShareCandleData(sid);
+            data.putSerializable("History", history);
+            int[] CompHist = DBHandler.getCompanyHistory(sid);
+            data.putSerializable("CompanyHistory", CompHist);
+        } else {
+            int[][] history = new int[1][1];
+            history[0][0] = -1;
+            data.putSerializable("History", history);
+            int[] xx = {-1};
+            data.putIntArray("CompanyHistory", xx);
+        }
         intent.putExtras(data);
         startActivity(intent);
     }
@@ -1850,12 +1878,25 @@ public class MainActivity extends AppCompatActivity {
     public void clickName(View v){
         Intent intent = new Intent(MainActivity.this, ShareActivity.class);
         Bundle data = new Bundle();
-        data.putInt("SID", (v.getId() - 200000));
+        int sid = v.getId() - 200000;
+        data.putInt("SID", sid);
         data.putBoolean("playSound", playSound);
         data.putBoolean("dayOpen", dayOpen);
         data.putLong("Pmoney", p.getMoney());
         data.putInt("level", p.getLevel());
         data.putInt("assets", p.getAssets());
+        if(fullGame){
+            int[][] history = DBHandler.RetrieveShareCandleData(sid);
+            data.putSerializable("History", history);
+            int[] CompHist = DBHandler.getCompanyHistory(sid);
+            data.putSerializable("CompanyHistory", CompHist);
+        } else {
+            int[][] history = new int[1][1];
+            history[0][0] = -1;
+            data.putSerializable("History", history);
+            int[] xx = {-1};
+            data.putIntArray("CompanyHistory", xx);
+        }
         intent.putExtras(data);
         startActivity(intent);
     }

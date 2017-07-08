@@ -4,16 +4,20 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.os.Bundle;
 import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.ListView;
 import android.widget.TextView;
 
 public class PlayerInfoActivity extends AppCompatActivity {
+
+    //TODO: retrieve and show history data, as a list (scroll interaction only).
 
     boolean playSound;
     static Daytime time;
@@ -40,6 +44,7 @@ public class PlayerInfoActivity extends AppCompatActivity {
         money = data.getLong("Pmoney");
         assets =data.getInt("assets");
         level = data.getInt("level");
+        String[] values = data.getStringArray("history");
         long NetWorth = data.getLong("NetWorth");
         playSound = data.getBoolean("playSound");
 
@@ -103,6 +108,9 @@ public class PlayerInfoActivity extends AppCompatActivity {
         });
 
         UpdateTopBar(playerInfoBar, daytimeView);
+
+        ListView historyView = (ListView)findViewById(R.id.History);
+        historyView.setAdapter(new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, values));
 
         LocalBroadcastManager.getInstance(this).registerReceiver(new BroadcastReceiver() {
             @Override

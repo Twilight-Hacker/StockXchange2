@@ -73,7 +73,7 @@ public class Daytime{
         return (this.term-1)*60 + this.day;
     }
 
-    //returns what the tatal days will be after X days
+    //returns what the total days will be after X days
     public int totalDays(int duration){
         return (this.term-1)*60 + this.day + duration;
     }

@@ -127,10 +127,6 @@
             </intent-filter>
         </activity>
 
-        <service
-            android:name=".PriceGeneratorUpdate"
-            android:exported="false" >
-        </service>
     </application>
 
 </manifest>
