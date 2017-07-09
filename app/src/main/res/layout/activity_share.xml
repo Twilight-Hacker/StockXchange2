@@ -40,10 +40,10 @@ android:id="@+id/ActivityShareLayout" >
 
         <com.galadar.example.stockxchange.ChartSurface
             android:layout_width="match_parent"
-            android:paddingLeft="5dp"
-            android:paddingStart="5dp"
-            android:paddingEnd="5dp"
-            android:paddingRight="5dp"
+            android:paddingLeft="2dp"
+            android:paddingStart="2dp"
+            android:paddingEnd="2dp"
+            android:paddingRight="2dp"
             android:layout_height="175dp"
             android:id="@+id/ShareHistory"
             android:layout_below="@id/TopBar"

@@ -63,7 +63,7 @@ public class MemoryDB extends SQLiteOpenHelper {
     public static final String SHORT_COLUMN_TOTAL_SETTLE_DAYS = "totalDays";
 
     public static final String COMPANY_HISTORY_TABLE_NAME = "CHistory";
-    public static final String COMPANY_HISTORY_COLUMN_ID = "cid";
+    public static final String COMPANY_HISTORY_COLUMN_CID = "cid";
     public static final String COMPANY_HISTORY_COLUMN_DAY = "day";
     public static final String COMPANY_HISTORY_COLUMN_VALUE = "value";
 
@@ -195,10 +195,10 @@ public class MemoryDB extends SQLiteOpenHelper {
         db.execSQL(
                 "CREATE TABLE " + COMPANY_HISTORY_TABLE_NAME + "(" +
                         ALL_TABLES_COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
-                        COMPANY_HISTORY_COLUMN_ID + " INTEGER NOT NULL, " +
+                        COMPANY_HISTORY_COLUMN_CID + " INTEGER NOT NULL, " +
                         COMPANY_HISTORY_COLUMN_DAY + " INTEGER, " +
                         COMPANY_HISTORY_COLUMN_VALUE + " INTEGER, " +
-                        " FOREIGN KEY (" + COMPANY_HISTORY_COLUMN_ID + ") REFERENCES " + COMPANIES_TABLE_NAME + "(" + COMPANIES_COLUMN_CID + ") ON DELETE CASCADE ON UPDATE CASCADE" +
+                        " FOREIGN KEY (" + COMPANY_HISTORY_COLUMN_CID + ") REFERENCES " + COMPANIES_TABLE_NAME + "(" + COMPANIES_COLUMN_CID + ") ON DELETE CASCADE ON UPDATE CASCADE" +
                         ");"
         );
 
@@ -206,7 +206,7 @@ public class MemoryDB extends SQLiteOpenHelper {
                 "CREATE TABLE " + PLAYER_HISTORY_TABLE_NAME + "(" +
                         ALL_TABLES_COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
                         PLAYER_HISTORY_COLUMN_DAY + " INTEGER, " +
-                        PLAYER_HISTORY_COLUMN_ACTION + " TEXT, " +
+                        PLAYER_HISTORY_COLUMN_ACTION + " TEXT " +
                         ");"
         );
 
@@ -243,10 +243,10 @@ public class MemoryDB extends SQLiteOpenHelper {
             db.execSQL(
                     "CREATE TABLE " + COMPANY_HISTORY_TABLE_NAME + "(" +
                             ALL_TABLES_COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
-                            COMPANY_HISTORY_COLUMN_ID + " INTEGER NOT NULL, " +
+                            COMPANY_HISTORY_COLUMN_CID + " INTEGER NOT NULL, " +
                             COMPANY_HISTORY_COLUMN_DAY + " INTEGER, " +
                             COMPANY_HISTORY_COLUMN_VALUE + " INTEGER, " +
-                            " FOREIGN KEY (" + COMPANY_HISTORY_COLUMN_ID + ") REFERENCES " + COMPANIES_TABLE_NAME + "(" + COMPANIES_COLUMN_CID + ") ON DELETE CASCADE ON UPDATE CASCADE" +
+                            " FOREIGN KEY (" + COMPANY_HISTORY_COLUMN_CID + ") REFERENCES " + COMPANIES_TABLE_NAME + "(" + COMPANIES_COLUMN_CID + ") ON DELETE CASCADE ON UPDATE CASCADE" +
                             ");"
             );
 
@@ -316,6 +316,7 @@ public class MemoryDB extends SQLiteOpenHelper {
         c.moveToFirst();
         int a = c.getCount();
         c.close();
+        db.close();
         return a;
     }
 
@@ -325,6 +326,7 @@ public class MemoryDB extends SQLiteOpenHelper {
         Cursor c =  db.rawQuery("select * from " + SCAMS_TABLE_NAME + " where " + SCAMS_COLUMN_SID + "=" + sid + ";", null);
         if(c.moveToFirst()) type=c.getInt(c.getColumnIndex(SCAMS_COLUMN_TYPE));
         c.close();
+        db.close();
         return type;
     }
 
@@ -334,6 +336,7 @@ public class MemoryDB extends SQLiteOpenHelper {
         Cursor c =  db.rawQuery("select * from " + SCAMS_TABLE_NAME + " where " + SCAMS_COLUMN_SID + "=" + sid + ";", null);
         if(c.moveToFirst()) days=c.getInt(c.getColumnIndex(SCAMS_COLUMN_RESOLUTION_DAY));
         c.close();
+        db.close();
         return days;
     }
 
@@ -459,6 +462,7 @@ public class MemoryDB extends SQLiteOpenHelper {
         values.put(COMPANIES_COLUMN_FAME, company.getFame());
         values.put(COMPANIES_COLUMN_CID, CID);
         db.insert(COMPANIES_TABLE_NAME, null, values);
+        db.close();
     }
 
     public void setOutlook(String name, double outlook){
@@ -594,7 +598,7 @@ public class MemoryDB extends SQLiteOpenHelper {
     int[][] RetrieveShareCandleData(int sid){
         int[][] data;
         SQLiteDatabase db = this.getReadableDatabase();
-        Cursor c =  db.rawQuery("select * from " + SHARE_HISTORY_TABLE_NAME + " where " + SHARES_COLUMN_SID + "=" + sid + " ORDER BY " + SHARE_HISTORY_COLUMN_DAY + "ASC;", null);
+        Cursor c =  db.rawQuery("select * from " + SHARE_HISTORY_TABLE_NAME + " where " + SHARES_COLUMN_SID + "=" + sid + " ORDER BY " + SHARE_HISTORY_COLUMN_DAY + " ASC;", null);
         if(c.getCount()>0) {
             data = new int[c.getCount()][5];
             c.moveToFirst();
@@ -1078,6 +1082,7 @@ public class MemoryDB extends SQLiteOpenHelper {
         db.execSQL("DELETE FROM " + SHARE_HISTORY_TABLE_NAME + " WHERE 1;");
         db.execSQL("DELETE FROM " + COMPANY_HISTORY_TABLE_NAME + " WHERE 1;");
         db.execSQL("DELETE FROM " + PLAYER_HISTORY_TABLE_NAME + " WHERE 1;");
+        db.close();
     }
 
     public void bankrupt(String name) {
@@ -1093,6 +1098,7 @@ public class MemoryDB extends SQLiteOpenHelper {
         c.moveToFirst();
         int a = c.getCount();
         c.close();
+        db.close();
         return a;
     }
 
@@ -1455,7 +1461,7 @@ public class MemoryDB extends SQLiteOpenHelper {
         db.close();
     }
 
-    public void setCompCurrValue(String name, long newV) {
+    public void setCompCurrValue(String name, long newV) { //For use in term update, not needing to add value to history
         SQLiteDatabase db = this.getWritableDatabase();
         String where = COMPANIES_COLUMN_NAME+"=?";
         String[] args = {name};
@@ -1465,7 +1471,7 @@ public class MemoryDB extends SQLiteOpenHelper {
         db.close();
     }
 
-    public void setCompCurrValue(String name, long newV, int day) {
+    public void setCompCurrValue(String name, int cid, long newV, int day) {
         SQLiteDatabase db = this.getWritableDatabase();
         String where = COMPANIES_COLUMN_NAME+"=?";
         String[] args = {name};
@@ -1474,6 +1480,7 @@ public class MemoryDB extends SQLiteOpenHelper {
         db.update(COMPANIES_TABLE_NAME,values, where, args);
         values.clear();
         values.put(COMPANY_HISTORY_COLUMN_DAY, day);
+        values.put(COMPANY_HISTORY_COLUMN_CID, cid);
         values.put(COMPANY_HISTORY_COLUMN_VALUE, newV);
         db.insert(COMPANY_HISTORY_TABLE_NAME, null, values);
         db.close();
@@ -1482,13 +1489,13 @@ public class MemoryDB extends SQLiteOpenHelper {
     int[] getCompanyHistory(int cid){
         int[] curr;
         SQLiteDatabase db = this.getReadableDatabase();
-        Cursor c =  db.rawQuery("select * from " + COMPANY_HISTORY_TABLE_NAME + " where " + COMPANY_HISTORY_COLUMN_ID + "=" + cid + " ORDER BY " + COMPANY_HISTORY_COLUMN_DAY + " ASC;", null);
+        Cursor c =  db.rawQuery("select * from " + COMPANY_HISTORY_TABLE_NAME + " where " + COMPANY_HISTORY_COLUMN_CID + "=" + cid + " ORDER BY " + COMPANY_HISTORY_COLUMN_DAY + " ASC;", null);
         if(c.getCount()>0) {
             curr = new int[c.getCount()];
             c.moveToFirst();
             int k = 0;
             while (!c.isAfterLast()) {
-                curr[k] = c.getInt(c.getColumnIndex(SHARES_COLUMN_REMAINING_SHARES));
+                curr[k] = c.getInt(c.getColumnIndex(COMPANY_HISTORY_COLUMN_VALUE));
                 c.moveToNext();
                 k++;
             }
@@ -1506,6 +1513,7 @@ public class MemoryDB extends SQLiteOpenHelper {
         Cursor c =  db.rawQuery("select * from " + SCAMS_TABLE_NAME + " where " + SCAMS_COLUMN_SID + "=" + sid + ";", null);
         boolean a = c.getCount()>0;
         c.close();
+        db.close();
         return a;
     }
 
@@ -1530,6 +1538,7 @@ public class MemoryDB extends SQLiteOpenHelper {
         db.delete(SHARE_HISTORY_TABLE_NAME, where, args);
         where = COMPANY_HISTORY_COLUMN_DAY+"<=?";
         db.delete(COMPANY_HISTORY_TABLE_NAME, where, args);
+        db.close();
     }
 
     public ArrayList<Event> retrieveEvents(int currentDay) {

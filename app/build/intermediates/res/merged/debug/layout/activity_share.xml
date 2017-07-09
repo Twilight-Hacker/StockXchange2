@@ -38,21 +38,23 @@ android:id="@+id/ActivityShareLayout" >
 
     </LinearLayout>
 
-    <ImageView
-        android:layout_width="200dp"
-        android:layout_height="175dp"
-        android:src="@drawable/shares"
-        android:id="@+id/ShareImage"
-        android:layout_below="@id/TopBar"
-        android:layout_gravity="center"
-        android:layout_centerHorizontal="true"
-        android:background="@color/black" />
+        <com.galadar.example.stockxchange.ChartSurface
+            android:layout_width="match_parent"
+            android:paddingLeft="2dp"
+            android:paddingStart="2dp"
+            android:paddingEnd="2dp"
+            android:paddingRight="2dp"
+            android:layout_height="175dp"
+            android:id="@+id/ShareHistory"
+            android:layout_below="@id/TopBar"
+            android:layout_centerHorizontal="true"/>
 
 
-    <RelativeLayout
+
+        <RelativeLayout
         android:layout_width="fill_parent"
         android:layout_height="wrap_content"
-        android:layout_below="@id/ShareImage"
+        android:layout_below="@id/ShareHistory"
         android:id="@+id/ShareDataLayout"
         android:layout_marginTop="50dp">
 

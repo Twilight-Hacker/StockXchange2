@@ -48,6 +48,11 @@ public class PlayerInfoActivity extends AppCompatActivity {
         long NetWorth = data.getLong("NetWorth");
         playSound = data.getBoolean("playSound");
 
+        if(values==null){
+            values = new String[1];
+            values[0] = "No history available at this point.";
+        }
+
         long value = money+NetWorth;
 
         //boolean activate LevelUp button
@@ -110,7 +115,7 @@ public class PlayerInfoActivity extends AppCompatActivity {
         UpdateTopBar(playerInfoBar, daytimeView);
 
         ListView historyView = (ListView)findViewById(R.id.History);
-        historyView.setAdapter(new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, values));
+        historyView.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, values));
 
         LocalBroadcastManager.getInstance(this).registerReceiver(new BroadcastReceiver() {
             @Override

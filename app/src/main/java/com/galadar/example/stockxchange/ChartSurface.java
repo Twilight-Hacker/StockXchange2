@@ -26,16 +26,15 @@ public class ChartSurface extends SurfaceView {
     private Point p2;
 
     PriceControl pc;    //PriceControl Object for handling prices
-    boolean lineChart, SecLineDrawn;
-    float SecLineEdgeBorder, SecLineEdgeWidth;
+    boolean lineChart;
     int FirstPrintedCandle;
     String name;
-    Candle[] candles;
-    int[] linePoints;
+    Candle[] candles;           //table to use for drawing Candlesticks
+    int[] linePoints;           //table to use for drawing line
     int[] Dates;
-    boolean screenShot;         //Take sviewshot or not
-    Canvas ScreenShotCanvas;    //Canvas Object to use for Viewshots
-    Bitmap bmp;                 //Bitmap for the Viewshot Canvas to draw on
+    //boolean screenShot;         //Take sviewshot or not
+    //Canvas ScreenShotCanvas;    //Canvas Object to use for Viewshots
+    //Bitmap bmp;                 //Bitmap for the Viewshot Canvas to draw on
     SurfaceHolder h;            //Variable for holding the holder Object
 
     //Constructors
@@ -58,7 +57,6 @@ public class ChartSurface extends SurfaceView {
         candles = ca;
         Dates = da;
         name = n;
-        SecLineDrawn = false;
 
         int AxisX_Bottom = Dates[0];
         int AxisX_Top = Dates[Dates.length - 1];
@@ -81,9 +79,9 @@ public class ChartSurface extends SurfaceView {
         pc = new PriceControl(context);
         pc.setObj(AxisX_Top, AxisX_Bottom, AxisY_Top, AxisY_Bottom, ca.length);
 
-        bmp = Bitmap.createBitmap(pc.getWidth(), pc.getHeight(), Bitmap.Config.ARGB_8888);
-        ScreenShotCanvas = new Canvas(bmp);
-        screenShot = false;
+        //bmp = Bitmap.createBitmap(pc.getWidth(), pc.getHeight(), Bitmap.Config.ARGB_8888);
+        //ScreenShotCanvas = new Canvas(bmp);
+        //screenShot = false;
 
         FirstPrintedCandle = candles.length - getCurrentCandleAmount();
 
@@ -92,23 +90,20 @@ public class ChartSurface extends SurfaceView {
 
     public void generateLine(Context context, String n, int[] ca, int[] da) {
 
-        //TODO: Correct this
-
         linePoints = ca;
         Dates = da;
         name = n;
-        SecLineDrawn = false;
 
         int AxisX_Bottom = Dates[0];
         int AxisX_Top = Dates[Dates.length - 1];
-        int AxisY_Bottom = candles[0].getLow();
-        int AxisY_Top = candles[0].getHigh();
-        for (int i = 0; i < candles.length; i++) {
-            if (AxisY_Top < candles[i].getHigh()) {
-                AxisY_Top = candles[i].getHigh();
+        int AxisY_Bottom = linePoints[0];
+        int AxisY_Top = linePoints[0];
+        for (int i = 0; i < linePoints.length; i++) {
+            if (AxisY_Top < linePoints[i]) {
+                AxisY_Top = linePoints[i];
             }
-            if (AxisY_Bottom > candles[i].getLow()) {
-                AxisY_Bottom = candles[i].getLow();
+            if (AxisY_Bottom > linePoints[i]) {
+                AxisY_Bottom = linePoints[i];
             }
         }
 
@@ -120,11 +115,9 @@ public class ChartSurface extends SurfaceView {
         pc = new PriceControl(context);
         pc.setObj(AxisX_Top, AxisX_Bottom, AxisY_Top, AxisY_Bottom, ca.length);
 
-        bmp = Bitmap.createBitmap(pc.getWidth(), pc.getHeight(), Bitmap.Config.ARGB_8888);
-        ScreenShotCanvas = new Canvas(bmp);
-        screenShot = false;
-
-        FirstPrintedCandle = candles.length - getCurrentCandleAmount();
+        //bmp = Bitmap.createBitmap(pc.getWidth(), pc.getHeight(), Bitmap.Config.ARGB_8888);
+        //ScreenShotCanvas = new Canvas(bmp);
+        //screenShot = false;
 
     }
 
@@ -136,7 +129,6 @@ public class ChartSurface extends SurfaceView {
     //Function for creating a Candles Chart (also handles viewshots)
     public void createCandleChart() { //Price data HOCL, in that column order per lineChart
         lineChart = false;
-        SecLineDrawn = false;
         Canvas c = h.lockCanvas();
 
         c.drawColor(Color.WHITE);
@@ -166,6 +158,8 @@ public class ChartSurface extends SurfaceView {
         p.setTextSize(300.0f);
         p.setTextAlign(Paint.Align.CENTER);
         c.drawText(name, pc.getWidth() * 0.5f, pc.getHeight() * 0.5f, p);
+
+        System.out.println("USERSYS: Drawing Line.");
 
         c = drawLineChart(c);
 
@@ -215,6 +209,8 @@ public class ChartSurface extends SurfaceView {
         //AXIS X Ticks (Dates)
 
         tickPaint.setTextAlign(Paint.Align.CENTER);
+
+        System.out.println("USERSYS: Drawing Axii.");
 
         if (lineChart) {
             diff = Dates.length / 5;
@@ -293,7 +289,7 @@ public class ChartSurface extends SurfaceView {
         return c;
     }
 
-    //Actual Line Chart drawing function, getting Canvas from calling function and returning it, to also handle Viewshots
+    //Actual Line Chart drawing function, getting Canvas from calling function and returning it
     private Canvas drawLineChart(Canvas c) {
 
         Paint paint = new Paint();
@@ -303,10 +299,12 @@ public class ChartSurface extends SurfaceView {
         paint.setStrokeJoin(Paint.Join.ROUND);
         float lastX, lastY, pri, loc;
 
+        if(linePoints.length<2) return(c);
+
         lastX = pc.getHORIZONTAL_BORDER() - 1;
-        lastY = pc.PriceToYCoord(candles[0].getClose());
-        for (int i = 0; i < candles.length; i++) {
-            pri = pc.PriceToYCoord(candles[i].getClose());
+        lastY = pc.PriceToYCoord(linePoints[0]);
+        for (int i = 0; i < linePoints.length; i++) {
+            pri = pc.PriceToYCoord(linePoints[i]);
             loc = pc.LinePosToXCoord(i);
             c.drawLine(lastX, lastY, loc, pri, paint);
             lastX = loc;
@@ -314,34 +312,6 @@ public class ChartSurface extends SurfaceView {
         }
 
         return c;
-    }
-
-    //Function for drawing the Vertical line used to select datapoints in Line Charts
-    public void drawVertLine(float x) {
-        if (lineChart) {
-            int pos = pc.LineXCoordToPos(x);
-            float y = pc.PriceToYCoord(candles[pos].getClose());
-
-            Canvas c = h.lockCanvas();
-            c.drawColor(Color.WHITE);
-            c = drawLineChart(c);
-
-            Paint p = new Paint();
-            p.setStrokeWidth(2.0f);
-            p.setColor(Color.BLACK);
-            c.drawLine(pc.LinePosToXCoord(pos), pc.getHeight() - 1, pc.LinePosToXCoord(pos), y, p);
-
-            p.setColor(Color.BLUE);
-            c.drawCircle(pc.LinePosToXCoord(pos), y, 5.0f, p);
-
-            p.setTextSize(16.0f);
-            p.setColor(Color.RED);
-            p.setTextAlign(Paint.Align.CENTER);
-            c.drawText(Integer.toString(Dates[pos]), pc.LinePosToXCoord(pos), pc.PriceToYCoord(candles[pos].getClose() / 2), p);
-
-            h.unlockCanvasAndPost(c);
-        }
-
     }
 
     //Helper function for preparing the Candles Chart, returning the amount of Candles to draw

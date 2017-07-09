@@ -1419,7 +1419,7 @@ public class MainActivity extends AppCompatActivity {
             if(fullGame) {
                 for (int i = 0; i < DBHandler.getMaxSID(); i++) {
                     DBHandler.DayCloseShare(i, f.getLastClose(i), time.totalDays(), f.getShareCandleData(i));
-                    DBHandler.setCompCurrValue(f.getName(i), f.getCompCurrValue(i), time.totalDays());
+                    DBHandler.setCompCurrValue(f.getName(i), i, f.getCompCurrValue(i), time.totalDays());
                 }
             }
 
@@ -1479,9 +1479,6 @@ public class MainActivity extends AppCompatActivity {
                     d.show();
                 }
             } else {
-                for (int i = 0; i < f.getNumComp(); i++) {
-                    if(fullGame)DBHandler.DayCloseShare(i, f.getLastClose(i), time.totalDays(), f.getShareCandleData(i));
-                }
                 //Updating DB to show the NEXT day (and possibly term) than the one Just ENDED
                 if (time.getDay() == 60) {
                     LocalBroadcastManager.getInstance(MainActivity.this).sendBroadcast(new Intent("TermEnded"));

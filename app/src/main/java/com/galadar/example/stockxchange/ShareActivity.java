@@ -16,7 +16,6 @@ import android.widget.TextView;
 
 public class ShareActivity extends AppCompatActivity implements SurfaceHolder.Callback{
 
-    //TODO: retrieve and show history data. remember that DB data do NOT include current day, the last element data point must be added seperately here or in Main. Verify First data point. If -1, nothing was retrieved.
     static Daytime time;
     static boolean playSound;
     static Finance f;
@@ -51,7 +50,7 @@ public class ShareActivity extends AppCompatActivity implements SurfaceHolder.Ca
         int[] compData = data.getIntArray("CompanyHistory");
 
         if(history[0][0]!=-1) {
-            int[] Dates = new int[history.length+1];
+            Dates = new int[history.length+1];
             candleData = new Candle[history.length+1];
             LineData = new int[compData.length+1];
             for (int i = 0; i < history.length; i++) {
@@ -65,7 +64,7 @@ public class ShareActivity extends AppCompatActivity implements SurfaceHolder.Ca
             candleData[history.length] = new Candle(curr[0], curr[1], curr[2], curr[3]);
             LineData[compData.length] = (int)f.getCompCurrValue(SID);
         } else {
-            int[] Dates = new int[1];
+            Dates = new int[1];
             Dates[0] = time.totalDays();
             LineData = new int[1];
             candleData = new Candle[1];
@@ -85,6 +84,7 @@ public class ShareActivity extends AppCompatActivity implements SurfaceHolder.Ca
 
         chart = (ChartSurface)findViewById(R.id.ShareHistory);
         chart.generateCandle(this, f.getName(SID), candleData, Dates);
+        chart.getHolder().addCallback(this);
 
         final TextView SharePrice = (TextView)findViewById(R.id.ShareCurrPriData);
         price = f.getShareCurrPrince(SID);
@@ -161,8 +161,8 @@ public class ShareActivity extends AppCompatActivity implements SurfaceHolder.Ca
                 data.putIntArray("Dates", Dates);
                 data.putSerializable("LineData", LineData);
                 intent.putExtras(data);
-                startActivity(intent);
                 ShareActivity.this.finish();
+                startActivity(intent);
             }
         });
 
@@ -233,6 +233,7 @@ public class ShareActivity extends AppCompatActivity implements SurfaceHolder.Ca
             }
         }, new IntentFilter("DayStarted"));
 
+        System.out.println("USERSYS: OnCreate Finished");
     }
 
     public void BuyShare(int SID){
@@ -315,11 +316,13 @@ public class ShareActivity extends AppCompatActivity implements SurfaceHolder.Ca
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
         chart.finalizeSurface(holder);
+
     }
 
     @Override
     public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
         chart.createCandleChart();
+
     }
 
     @Override

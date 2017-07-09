@@ -29,7 +29,7 @@ public class CompanyActivity extends AppCompatActivity implements SurfaceHolder.
     static int assets;
     int[] LineData;
     int[] Dates;
-    ChartSurface chart;
+    ChartSurface HistChart;
     String zerodigit;
 
     @Override
@@ -75,8 +75,11 @@ public class CompanyActivity extends AppCompatActivity implements SurfaceHolder.
         TextView InvestView = (TextView)findViewById(R.id.LastTermInvDt);
         InvestView.setText("$"+Long.toString(inv));
 
-        chart = (ChartSurface)findViewById(R.id.CompanyHistory);
-        chart.generateLine(this, f.getName(CID), LineData, Dates);
+        System.out.println("USERSYS: Half Create, getting chartsurface.");
+
+        HistChart = (ChartSurface)findViewById(R.id.CompanyHistory);
+        HistChart.generateLine(this, f.getName(CID), LineData, Dates);
+        HistChart.getHolder().addCallback(this);
 
         Button Report = (Button)findViewById(R.id.ScamCheck);
         Report.setEnabled(assets>0);
@@ -125,6 +128,7 @@ public class CompanyActivity extends AppCompatActivity implements SurfaceHolder.
             }
         }, new IntentFilter("TimeForwarded"));
 
+        System.out.println("USERSYS: OnCreate Complete");
     }
 
     @Override
@@ -171,12 +175,14 @@ public class CompanyActivity extends AppCompatActivity implements SurfaceHolder.
 
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
-        chart.finalizeSurface(holder);
+        HistChart.finalizeSurface(holder);
+        System.out.println("USERSYS: Surface Created.");
     }
 
     @Override
     public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-        chart.createLineChart();
+        HistChart.createLineChart();
+        System.out.println("USERSYS: Surface Ready.");
     }
 
     @Override
