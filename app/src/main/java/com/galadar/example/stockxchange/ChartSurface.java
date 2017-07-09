@@ -159,8 +159,6 @@ public class ChartSurface extends SurfaceView {
         p.setTextAlign(Paint.Align.CENTER);
         c.drawText(name, pc.getWidth() * 0.5f, pc.getHeight() * 0.5f, p);
 
-        System.out.println("USERSYS: Drawing Line.");
-
         c = drawLineChart(c);
 
         h.unlockCanvasAndPost(c);
@@ -209,8 +207,6 @@ public class ChartSurface extends SurfaceView {
         //AXIS X Ticks (Dates)
 
         tickPaint.setTextAlign(Paint.Align.CENTER);
-
-        System.out.println("USERSYS: Drawing Axii.");
 
         if (lineChart) {
             diff = Dates.length / 5;

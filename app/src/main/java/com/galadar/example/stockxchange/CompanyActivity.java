@@ -75,8 +75,6 @@ public class CompanyActivity extends AppCompatActivity implements SurfaceHolder.
         TextView InvestView = (TextView)findViewById(R.id.LastTermInvDt);
         InvestView.setText("$"+Long.toString(inv));
 
-        System.out.println("USERSYS: Half Create, getting chartsurface.");
-
         HistChart = (ChartSurface)findViewById(R.id.CompanyHistory);
         HistChart.generateLine(this, f.getName(CID), LineData, Dates);
         HistChart.getHolder().addCallback(this);
@@ -127,8 +125,6 @@ public class CompanyActivity extends AppCompatActivity implements SurfaceHolder.
                 UpdateTimeView(time);
             }
         }, new IntentFilter("TimeForwarded"));
-
-        System.out.println("USERSYS: OnCreate Complete");
     }
 
     @Override
@@ -176,13 +172,11 @@ public class CompanyActivity extends AppCompatActivity implements SurfaceHolder.
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
         HistChart.finalizeSurface(holder);
-        System.out.println("USERSYS: Surface Created.");
     }
 
     @Override
     public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
         HistChart.createLineChart();
-        System.out.println("USERSYS: Surface Ready.");
     }
 
     @Override

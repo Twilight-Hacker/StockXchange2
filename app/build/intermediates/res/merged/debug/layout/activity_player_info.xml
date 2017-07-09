@@ -49,6 +49,7 @@
         android:layout_width="match_parent"
         android:layout_height="175dp"
         android:id="@+id/History"
+        android:background="@color/white"
         android:layout_below="@id/TopBar"
         android:foregroundGravity="center"
         android:layout_centerHorizontal="true"

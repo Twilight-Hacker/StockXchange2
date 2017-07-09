@@ -233,7 +233,6 @@ public class ShareActivity extends AppCompatActivity implements SurfaceHolder.Ca
             }
         }, new IntentFilter("DayStarted"));
 
-        System.out.println("USERSYS: OnCreate Finished");
     }
 
     public void BuyShare(int SID){
