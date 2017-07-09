@@ -17,6 +17,20 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
+/*
+This is the activity used for selling shares. The player decides the amount to sell by using 6 buttons, +1, +10, +100 and -1, -10, -100.
+Two extra buttons set the amount to max and 0 respectively.
+
+The amount cannot be less than 0 (obviously, shares are bought elsewhere), and more than they own.
+
+Short selling is only available on higher levels.
+
+Buttons that should not be used become inactive. When done, the player clicks the Sell button which sends an intent broadcast (locally)
+to a receiver in Main that handles the transaction, and finishes the activity to return to Main.
+
+The activity also updates prices automatically when a new price is generated from main.
+ */
+
 public class SellActivity extends AppCompatActivity {
 
     static int price;

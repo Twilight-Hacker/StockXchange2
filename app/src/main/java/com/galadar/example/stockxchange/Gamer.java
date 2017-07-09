@@ -2,14 +2,17 @@ package com.galadar.example.stockxchange;
 
 /**
  * Created by Galadar on 29/9/2015.
- * Gamer Object
+ * Gamer Object holding the player data.
+ *
+ * See each variable declaration for what it does.
  */
 public class Gamer {
 
-    long money;
-    int assets;
-    int level;
-    private int fame;
+    long money;         //The amount of cash the player has
+    int assets;         //The amount of full assets the player has
+    int level;          //The player's level. This affects the options available to the player, as well as the amount of taxes the
+    // player pays and the validity of rumors they hear (see MainActivity). Player levels up on their own volition, but cannot level down.
+    private int fame;   //This will be used in the future for player generated events.
 
 
 

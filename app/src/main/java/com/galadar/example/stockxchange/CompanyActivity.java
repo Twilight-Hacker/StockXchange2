@@ -16,21 +16,22 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 
+/*
+Here the player can find info on a company. For what each piece of data represents, look at Main Activity and each separate declaration.
+ */
+
 public class CompanyActivity extends AppCompatActivity implements SurfaceHolder.Callback{
 
-    //TODO: retrieve and show history data. remember that DB data do NOT include current day, the last element data point must be added seperately here or in Main. Verify First data point. If -1, nothing was retrieved.
-
-    //static MemoryDB DBHandler;
-    static Finance f;
-    static Daytime time;
-    static boolean playSound;
-    static long money;
-    static int level;
-    static int assets;
-    int[] LineData;
-    int[] Dates;
-    ChartSurface HistChart;
-    String zerodigit;
+    static Finance f;           //Wrapper object for all economy data (see class)
+    static Daytime time;        //Object for storing time data (term, day, hour, minutes)
+    static boolean playSound;   //Play sound? Mostly used in menu for ticking the option
+    static long money;          //variable for the amount of cash the player holds (for showing at top)
+    static int level;           //variable for the player's level (for showing at top)
+    static int assets;          //variable for the amount of full assets the player has (for showing at top)
+    int[] LineData;             //Storing the data points for designing the line chart
+    int[] Dates;                //Storing the dates for the chart X axis
+    ChartSurface HistChart;     //The SurfaceView that holds the chart. See class.
+    String zerodigit;           //Temp variable for printing the extra 0 if required ($5.0 -> $5.00)
 
     @Override
     protected void onCreate(Bundle savedInstanceState){

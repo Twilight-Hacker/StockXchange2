@@ -13,14 +13,21 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 
+/*
+In this activity, the player gets information about the status of the economy.
+
+In the future, they will be able to buy bonds from here as well.
+
+Variables analysed in Finance, Gamer, Daytime and MainActivity classes
+ */
 public class EconomyInfoActivity extends AppCompatActivity {
 
-    static boolean playSound;
+    static boolean playSound;   //Play sound? Mostly used in menu for ticking the option.
     static int assets;
     static int level;
     static long money;
-    static Daytime time;
-    String zerodigit;
+    static Daytime time;        //Object for storing time data (term, day, hour, minutes)
+    String zerodigit;           //Temp variable for printing the extra 0 if required ($5.0 -> $5.00).
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

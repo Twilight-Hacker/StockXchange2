@@ -5,17 +5,23 @@ import java.util.Random;
 /*
  * Created by Galadar on 29/9/2015.
  * Company Object
+ *
+ * Objects of this helper class hold data for the "company" that affect its share price, for quick retrieval.
+ *
+ * See at declaration for what each variable represents.
  */
 
 public class Company {
-    String name;
-    long totalValue;
-    long currentValue;
-    int percentageValue;
-    int investment;
-    int totalShares;
-    double outlook;
-    public enum  Sectors{
+    String name;        //company name, for human differentiation (system uses CID)
+    long totalValue;    //the total net worth of the company. This divided by the number of shares is the best (available ...
+    // to players) indicator of the average price. Updated at every term end, when "the equity report for every company is published"
+    long currentValue;  //The hidden total value that updates daily by revenue (ssee below), and when divided by total shares gives the actual average of the share price.
+    int percentageValue;//This denotes growth. If it drops below -80% (the company ends up with less than 20% of its original value), it goes bankrupt.
+    int investment;     //The amount set for investment is doubled before added to total value next term
+    int totalShares;    //The total shares the company has. Every change is made public immediately.
+    double outlook;     //Company outlook. A major factor in determining share price
+
+    public enum  Sectors{ //There are 10 sectors for now
         Constr(0), Transp(1), Oil(2), Tech(3), Food(4), Telecom(5), Defence(6), Entert(7), Educ(8), Tourism(9);
 
         private int value;
@@ -26,11 +32,13 @@ public class Company {
 
         public int getValue(){return value;}
     }
-    Sectors Sector;
-    double marketShare;
-    int revenue;
-    int fame;
-    int lastRevenue;
+
+    Sectors Sector;     //The sector the company belongs to. Sector outlook combines with company outlook in determining share price..
+    double marketShare; //The market share the company has. This (along with the sector outlook) determines the revenue.
+    int revenue;        //revenue, accumulates throughout the day (positive or negative) to be added to current value at day end
+    int fame;           //Will be used in the future to determine resistance to events and sector outlook changes
+    int lastRevenue;    //The last revenue reported at the previous term's end. The only connection with revenue (above) is ...
+    //that it is the accumulation of all revenues across the entire term. It splits between investment and dividends.
 
     public Company(String name) {
         Random r = new Random();

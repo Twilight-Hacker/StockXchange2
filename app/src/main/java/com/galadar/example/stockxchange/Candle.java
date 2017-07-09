@@ -1,6 +1,10 @@
 package com.galadar.example.stockxchange;
 
 class Candle {
+    /*
+    This is a helper class, that stores the prices data of a share for a single day (Open, Close, High and Low), and
+    makes it easy to retrieve them. Used to draw charts in Candlesticks form.
+     */
 
     private String tooltip;
     private int high, low, open, close;

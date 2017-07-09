@@ -14,6 +14,19 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
+/*
+This is the activity used for buying shares. The player decide the amount to buy by using 6 buttons, +1, +10, +100 and -1, -10, -100.
+Two extra buttons set the amount to max and 0 respectively.
+
+The amount cannot be less than 0 (obviously, shares are sold elsewhere), and max amount is determined by the player's available cash.
+
+Buttons that should not be used become inactive. When done, the player clicks the Buy button which sends an intent broadcast (locally)
+to a receiver in Main that handles the transaction, and finishes the activity to return to main.
+
+The activity also updates prices automatically when a new price is generated from main.
+If necessary, it also adjusts the amount to not exceed max.
+ */
+
 public class BuyActivity extends AppCompatActivity {
 
     static int amount;
@@ -48,8 +61,6 @@ public class BuyActivity extends AppCompatActivity {
         price = data.getInt("Sprice");
         owned = data.getInt("Owned");
         totalShares = data.getInt("totalShares");
-
-        //TODO Player cannot buy more that 10% of total shares in a single transaction
 
         String title = getString(R.string.BuyActivityTitle) +" "+ Sname + " "+getString(R.string.shares);
         this.setTitle(title);

@@ -17,6 +17,12 @@ import android.widget.TextView;
 
 import java.util.ArrayList;
 
+/*
+Messages are for reporting news of events to the players. The messages activity is similar to the meeting activity and the NewsActivity.
+
+In the future, messages (news) will be adapted to show more than 1 news as well as more info on each news as the player clicks on it.
+ */
+
 public class MessagesActivity extends AppCompatActivity {
 
     static boolean playSound;
@@ -47,16 +53,16 @@ public class MessagesActivity extends AppCompatActivity {
             String str = "The economy is ";
             switch (state){
                 case Boom:
-                    str+="Booming. The goverment officials report that the economy is Booming, and great profit is to be made in the foreseable future, in all Industries.";
+                    str+="Booming. The government officials report that the economy is Booming, and great profit is to be made in the foreseeable future, in all Industries.";
                     break;
                 case Accel:
-                    str+="Accelarating. The goverment officials report that the future of our economy is bright, and companies can expect above average profits.";
+                    str+="Accelerating. The government officials report that the future of our economy is bright, and companies can expect above average profits.";
                     break;
                 case Recess:
-                    str+="destabilizing. The goverment officials report that the economy not doing very well, and companies should steer carefully to avoid losses.";
+                    str+="destabilizing. The government officials report that the economy not doing very well, and companies should steer carefully to avoid losses.";
                     break;
                 case Depres:
-                    str+="in depression and goverment officials are discussing possible actions to help the economy recover.";
+                    str+="in depression and government officials are discussing possible actions to help the economy recover.";
                     break;
             }
             MessagesText.add(str);
@@ -146,6 +152,8 @@ public class MessagesActivity extends AppCompatActivity {
         return super.onOptionsItemSelected(item);
     }
 
+    //Messages here are for random generated events. You can see here what each
+    //event type represents, but for full details please see MainActivity.
     private String getMessageString(int type, int magnitude) {
         String str = "";
 

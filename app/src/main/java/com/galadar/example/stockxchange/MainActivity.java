@@ -217,7 +217,7 @@ public class MainActivity extends AppCompatActivity {
 
                 int tax = (int) Math.max(revenue * 0.18, 0);                                        //Calculate corporate tax
 
-                CurrVal -= (long)tax;                                                                     //Remove taxes from remaining revenue
+                CurrVal -= (long)tax;                                                               //Remove taxes from remaining revenue
                 revenue -= tax;                                                                     //Remove taxes from remaining revenue
 
                 if (revenue > 0)
@@ -260,7 +260,7 @@ public class MainActivity extends AppCompatActivity {
                     DBHandler.setCompLastRevenue(f.getName(i), revenue);
                 } else {
                     f.setLastRevenue(i, revenue);
-                    f.setCompTotalValue(i, CurrVal);                                                    //Update total value
+                    f.setCompTotalValue(i, CurrVal);                                                //Update total value
                     f.setCompCurrValue(i, CurrVal);
                 }
             }

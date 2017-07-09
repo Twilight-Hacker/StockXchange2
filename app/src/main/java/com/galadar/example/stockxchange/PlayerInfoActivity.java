@@ -15,9 +15,15 @@ import android.widget.Button;
 import android.widget.ListView;
 import android.widget.TextView;
 
-public class PlayerInfoActivity extends AppCompatActivity {
+/*
+In this activity, the player can find information on their progress as well as a history hist of all their actions in the game.
 
-    //TODO: retrieve and show history data, as a list (scroll interaction only).
+In the future, Player generated events and Player corporations will also be available from here.
+
+Possibly, scams and illigal actions with player corporations will also be available.
+ */
+
+public class PlayerInfoActivity extends AppCompatActivity {
 
     boolean playSound;
     static Daytime time;

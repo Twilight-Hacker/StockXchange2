@@ -6,6 +6,8 @@ import android.support.v4.content.LocalBroadcastManager;
 /**
  * Created by Galadar on 1/10/2015.
  * Daytime Object
+ *
+ * Holds data for current term, day, hour and minutes. Broadcast manager for broadcasting start and end of trading day.
  */
 public class Daytime{
     int term;
@@ -108,22 +110,4 @@ public class Daytime{
         else if(this.min<30) return true;
         else return false;
     }
-
-/*
-    public int getMin() {
-        return min;
-    }
-
-    public void setMin(int min) {
-        this.min = min;
-    }
-
-    public int getHour() {
-        return hour;
-    }
-
-    public void setHour(int hour) {
-        this.hour = hour;
-    }
-*/
 }

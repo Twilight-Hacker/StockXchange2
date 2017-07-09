@@ -9,6 +9,10 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.TextView;
 
+/*
+News are for reporting Scams and scandals for the players. It is similar to MessagesActivity and MeetingActivity.
+ */
+
 public class NewsActivity extends Activity {
 
     boolean playSound;

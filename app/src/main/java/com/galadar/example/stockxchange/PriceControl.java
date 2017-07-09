@@ -6,24 +6,24 @@ import android.content.SharedPreferences;
 /**
  * Created by Galadar on 22/1/2017.
  *
- * This is a class with helper functions for converting price data to screen points/locations
+ * This is a class with helper functions for converting price data to screen points/locations for drawing the chart.
+ *
+ * Some of these functions will be used for dragging and/or otherwise controlling the chart.
  */
 
 public class PriceControl {
 
-    public static final float MinRectWidth = 70.0f;
+    public static final float MinRectWidth = 50.0f;
 
     float RectWidth, lineDiff;
     private int HORIZONTAL_BORDER, VERTICAL_BORDER;
 
-    //private Context con;
     private SharedPreferences prefs;
     private int height, width, length;
     private int X_Bottom, X_Top, Y_Bottom, Y_Top;
     private boolean set;
 
     public PriceControl(Context context){
-        //con = context;
         prefs = context.getSharedPreferences("prefs", Context.MODE_PRIVATE);
         height = prefs.getInt("height", 720);
         width = prefs.getInt("width", 720);

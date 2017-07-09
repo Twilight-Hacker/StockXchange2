@@ -8,6 +8,13 @@ import android.widget.TextView;
 
 import java.util.ArrayList;
 
+/*
+Simple activity for showing the meetings (tutorials). Has 3 buttons, "next part", "previous part" and a cancel button ("I don't care")
+that become available as needed.
+
+It is similar to the NewsActivity and the MessagesActivity.
+ */
+
 public class MeetingActivity extends Activity {
 
     static int i;

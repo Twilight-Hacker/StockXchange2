@@ -8,7 +8,15 @@ import android.database.sqlite.SQLiteOpenHelper;
 import java.util.ArrayList;
 
 /**
- * This class is only for setting and retrieving values from/to the Database. It will only do a minimal amount of Calculations where absolutely required.
+ * This class is only for setting and retrieving values from/to the Database.
+ *
+ * It will only do a minimal amount of Calculations where absolutely required.
+ *
+ * The Database stores data for saving and loading the game. The whole game is run from RAM by using the Finance and
+ * Gamer objects in MainActivity. The data is stored back in DB whenever deemed required.
+ *
+ * No explanation of functions here. Please see other classes, especially Finance, Gamer and MainActivity.
+ *
  * Created by Galadar on 11/10/2015.
  */
 

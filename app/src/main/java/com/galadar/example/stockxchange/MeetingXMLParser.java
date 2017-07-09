@@ -9,6 +9,8 @@ import java.util.ArrayList;
 /**
  * Created by Galadar on 28/10/2015.
  * Meeting xml parser that returns meeting array list
+ *
+ * This is a helper class for parsing the xml file that contains the meetings data and returning an array list of meetings.
  */
 public class MeetingXMLParser {
 

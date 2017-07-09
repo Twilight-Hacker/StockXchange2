@@ -17,15 +17,23 @@ import android.widget.TextView;
 
 import java.util.ArrayList;
 
+/*
+This activity is for the player to read information circulating as rumors.
+
+From here the player can use an asset to acquire certain information that is always true.
+
+For what rumors are and how they work, see MainActivity class.
+*/
+
 public class InfoActivity extends AppCompatActivity {
 
 
-    static Daytime time;
-    static boolean playSound;
-    static int assets;
-    static long money;
-    static int level;
-    String zeridigit;
+    static Daytime time;        //Object for storing time data (term, day, hour, minutes)
+    static boolean playSound;   //Play sound? Mostly used in menu for ticking the option
+    static int assets;          //variable for the amount of full assets the player has (for showing at top)
+    static long money;          //variable for the amount of cash the player holds (for showing at top)
+    static int level;           //variable for the player's level (for showing at top)
+    String zeridigit;           //Temp variable for printing the extra 0 if required ($5.0 -> $5.00)
     static TextView topBarPlayer;
     static TextView topBarDaytime;
 
