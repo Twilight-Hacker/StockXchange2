@@ -27,6 +27,33 @@ import java.util.ArrayList;
 import java.util.Random;
 
 /*
+Created by Galadar/Fragkas Vasileios
+
+This is the main class of the game, where all transactions are coordinated, all updates are
+initiated and all data is communicated back to the player
+
+The process is simple, on every update, a share price is updated with a certain probability. The update happens by conducting a
+random transaction hidden from the player. So the price changes naturally whether the system of the player conducts the transaction.
+
+While in a real stock exchange price is set by offers for purchase and/or sale, that is impossible to emulate in a low-end handheld
+device. So A system where only one price is reported was devised, and each purchase  increases the price while each sale decreases it.
+
+At the end of each day, the system updates all data, and the records everything to the DB (in effect, it auto saves). The game does not
+save while the day is running (trading occurs), and the player is aware of that. To avoid misuse, all events that are meant to entrap
+the player (eg scams) occur outside trading hours and at the same time, just as the day ends. That creates a small lag in very low-end
+devices that is unavoidable at the moment.
+
+At day 60, the term ends. The ending process is extremely calculation heavy, and is implemented via an asyncTask. The player is warned
+that interrupting this process could irreversibly damage the database and cause loss of all data.
+
+Just hanging around in the market also has its uses. After a while, the player starts hearing rumors about all kinds of things.
+Not all rumors are true, and the player does not know which is which (but is aware of the fact that some are lies).
+Rumor validity and frequency are controlled by level.
+
+See the comments in each class, method and variable to determine its purpose.
+
+The system coordinates the UI with data via use of cid/sid numbers, matching them with view IDs as seen below.
+
 Specific View IDs for editing textViews
 SID: Share id: share identifier im Memory and DB, 0 to NumberOfCompanies-1
 Share Name View: 200000+SID
@@ -37,67 +64,80 @@ Share Sell Button: 400000+SID
 
 public class MainActivity extends AppCompatActivity {
 
-    static Finance f;
-    public static final int[] nextLevel = {0, 125000, 620000, 1250000, 5500000, 25000000, 0}; //To be printed as is, not /100.
-    ProgressDialog progdialog;
-    static Gamer p;
-    Runnable r;
-    static MemoryDB DBHandler;
-    static Daytime time;
-    static TextView topBarPlayer;
-    static TextView topBarDaytime;
-    Handler BgHandler;
-    static int eventGen;
-    static ArrayList<Event> Events = new ArrayList<>();
-    static boolean playSound;
-    static boolean dayOpen;
-    static double infoGen;
-    static long nextInvite;
-    static ArrayList<String> Infos = new ArrayList<>();
-    static MediaPlayer soundplayer;
-    static ArrayList<Meeting> meetingsList;
-    public enum EconomyState{Normal, Accel, Boom, Recess, Depres}
-    static EconomyState state;
+    static Finance f;   //Wrapper object for economy data, see class
+    public static final int[] nextLevel = {0, 125000, 620000, 1250000, 5500000, 25000000, 0}; //To be printed
+    // as is, not /100. It is how much money you require to level up
+    ProgressDialog progDialog;  //the progress dialog that will be used to inform the user of the Term Update function progress
+    static Gamer p;             //The gamer object that holds player data. See class.
+    Runnable r;                 //Runnable for background thread that moves time forward
+    static MemoryDB DBHandler;  //Handler Object for the database. Used for loading and saving the game.
+    static Daytime time;        //The time object. See class
+    TextView topBarPlayer;      //The half of the top bar, showing player data (eg, money and level)
+    TextView topBarDaytime;     //The half of the topBar, showing time data (term, day, time)
+    Handler BgHandler;          //Handler for communication of events between threads
+    static int eventGen;        //accumulation variable for generating the next event
+    static ArrayList<Event> Events = new ArrayList<>(); //List holding all currently active events
+    static boolean playSound;   //Play sound? Mostly used in menu for ticking the option
+    static boolean dayOpen;     //Is the market open for trading. Updated every time time "moves forward"
+    static double infoGen;      //Accumulation variable for getting the next rumor.
+    static long nextInvite;     //Accumulation variable for being invited to an event. Events increase your assets.
+    static ArrayList<String> Infos = new ArrayList<>(); //List of all current rumors
+    static MediaPlayer soundPlayer;     //Object for ringing the bell that denotes the start and end of the trading day.
+    static ArrayList<Meeting> meetingsList;     //A list holding all meetings (tutorials)
+    enum EconomyState{Normal, Accel, Boom, Recess, Depres}  //The current economy state affects the revenue each company receives
+    static EconomyState state;      //The current state of the economy
     static String[] News = new String[2]; //News[0] is for title, News[1] is for body (~250 characters)
     static int NewsPriority = 0; //Something with lower news priority cannot change the news. There is only one news at a time. Priority: min=0, max=100.
-    static boolean fullGame;
+    static boolean fullGame;        //Normal or Quick game? Quick game data is never saved to DB.
 
+    //GET GAME COMPONENTS / OBJECTS
+
+    //Get the current state of the economy
     public static EconomyState getEconomyState(){
         return state;
     }
 
+    //Get the Finance object
     public static Finance getFinance(){
         return f;
     }
 
+    //get the daytime Object
     public static Daytime getClock(){
         return time;
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-        UpdateTopBar(topBarPlayer, topBarDaytime);
-        UpdateCommandsUI();
-    }
-
-    public int getNextLevelPreq(){
+    //The money required for the player to reach the next level
+    public int getNextLevelPrereq(){
         return nextLevel[p.getLevel()];
     }
 
-    class UpdateTerm extends AsyncTask<Object, Integer, Object> {
+    //Get the economy state matching with the given economy outlook
+    private EconomyState getEconomyState(double EconomyOutlook) {
+        if(p.getLevel()==1) return EconomyState.Normal;
+        if(EconomyOutlook>0.75)return EconomyState.Boom;
+        if(EconomyOutlook>0.5)return EconomyState.Accel;
+        if(EconomyOutlook<-0.5)return EconomyState.Recess;
+        if(EconomyOutlook<-0.75)return EconomyState.Depres;
+        return EconomyState.Normal;
+    }
+
+
+
+    //The term update process function
+    private class UpdateTerm extends AsyncTask<Object, Integer, Object> {
 
         @Override
         protected void onPreExecute() {
-            progdialog = new ProgressDialog(MainActivity.this);
-            progdialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+            progDialog = new ProgressDialog(MainActivity.this);
+            progDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
             String t = getString(R.string.termEnd) +" "+Integer.toString(time.getTerm()+1);
-            progdialog.setTitle(t);
-            progdialog.setMessage(getText(R.string.TermEndDialogText));
-            progdialog.setCancelable(false);
-            progdialog.setMax(100);
-            progdialog.setProgress(0);
-            progdialog.show();
+            progDialog.setTitle(t);
+            progDialog.setMessage(getText(R.string.TermEndDialogText));
+            progDialog.setCancelable(false);
+            progDialog.setMax(100);
+            progDialog.setProgress(0);
+            progDialog.show();
 
 
             if (p.getLevel() > 5 & ((p.getMoney() + f.NetWorth()) / 100) > 1000000000) {
@@ -121,7 +161,7 @@ public class MainActivity extends AppCompatActivity {
         @Override
         protected void onProgressUpdate(Integer[] values) {
             int increment = values[0];
-            progdialog.incrementProgressBy(increment);
+            progDialog.incrementProgressBy(increment);
             super.onProgressUpdate(values);
         }
 
@@ -129,10 +169,10 @@ public class MainActivity extends AppCompatActivity {
         protected void onPostExecute(Object o) {
             long[] result = (long[])o;
             long tax = result[0];
-            int NumOfBankrupties = (int) result[1];
+            int NumOfBankruptcies = (int) result[1];
             int newCompCounter = (int) result[2];
             long oldEcon = result[3];
-            long playerDivident = result[4];
+            long playerdividend = result[4];
 
             time.nextTerm();
             if (fullGame) {
@@ -143,23 +183,23 @@ public class MainActivity extends AppCompatActivity {
             UpdateCentralUI();
             UpdateTopBar(topBarPlayer, topBarDaytime);
 
-            progdialog.setProgress(100);
-            progdialog.dismiss();
+            progDialog.setProgress(100);
+            progDialog.dismiss();
 
             AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
             String out;
             if (f.getBaseSectorOutlook(0) > 0) out = getString(R.string.TermReportPositive);
             else out = getString(R.string.TermReportNegative);
             builder.setTitle(getString(R.string.TermReport));
-            String zerodigit1, zerodigit2;
-            if (tax % 10 == 0) zerodigit1 = "0";
-            else zerodigit1 = "";
-            zerodigit2 = "0";
-            String tr = getString(R.string.TermReportBody1, NumOfBankrupties);
+            String zeroDigit1, zeroDigit2;
+            if (tax % 10 == 0) zeroDigit1 = "0";
+            else zeroDigit1 = "";
+            zeroDigit2 = "0";
+            String tr = getString(R.string.TermReportBody1, NumOfBankruptcies);
             tr+= " "+ getString(R.string.TermReportBody2, newCompCounter);
             tr+= " " + getString(R.string.TermReportBody3, f.getEconSize2()-oldEcon) + " " + out;
-            tr+= " " + getString(R.string.TermReportBody4, (double)tax / 100 ) + zerodigit1;
-            tr+= " " + getString(R.string.TermReportBody5, (double)playerDivident / 100 ) + zerodigit2;
+            tr+= " " + getString(R.string.TermReportBody4, (double)tax / 100 ) + zeroDigit1;
+            tr+= " " + getString(R.string.TermReportBody5, (double)playerdividend / 100 ) + zeroDigit2;
 
             builder.setMessage(tr);
 
@@ -179,7 +219,7 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         protected void onCancelled() {
-            progdialog.dismiss();
+            progDialog.dismiss();
             super.onCancelled();
         }
 
@@ -187,14 +227,14 @@ public class MainActivity extends AppCompatActivity {
         protected Object doInBackground(Object[] params) {
             Random r = new Random();
 
-            double PreveconomyOutlook = f.getBaseSectorOutlook(0);
+            double PrevEconomyOutlook = f.getBaseSectorOutlook(0);
 
             Integer[] values=new Integer[1];
             long TotVal, CurrVal;
             int revenue, newInv, oldPerc, newPerc, newFame;
-            int divident;
+            int dividend;
             double newOut;
-            long playerDivident = 0;
+            long playerDividend = 0;
             for (int i = 0; i < f.getNumComp(); i++) {
                 CurrVal = f.getCompCurrValue(i);
                 if(CurrVal<=0) continue;
@@ -204,7 +244,7 @@ public class MainActivity extends AppCompatActivity {
                 if (fullGame) oldPerc = DBHandler.getCompPercValue(f.getName(i));                   //Getting Percentage Change in Value
                 else oldPerc = 0;
 
-                long investmentRes = Math.round( (PreveconomyOutlook+1)*f.getInvestment(i) );       //calculating investment gains
+                long investmentRes = Math.round( (PrevEconomyOutlook+1)*f.getInvestment(i) );       //calculating investment gains
                 CurrVal += (int) investmentRes/2;                                                   //add investment returns to Current and Total Values (half each)
                 TotVal +=  (int) investmentRes/2;
 
@@ -232,14 +272,14 @@ public class MainActivity extends AppCompatActivity {
 
 
                 if (newPerc > 0 & revenue*50 > f.getTotalShares(i)) {                              //Decide dividends, give if percentage value positive and revenue more than twice the total shares (in $)
-                    divident = f.Getdivident(i, revenue);                                           //Give as dividend 1% of share price, with a min of $1
-                    playerDivident += divident * f.getSharesOwned(i);
-                    int Totdivident = divident * f.getTotalShares(i);
-                    Totdivident = Math.round(Totdivident/100);
-                    CurrVal -= (long)Totdivident;
-                    revenue -= Totdivident;
+                    dividend = f.GetDividend(i, revenue);                                           //Give as dividend 1% of share price, with a min of $1
+                    playerDividend += dividend * f.getSharesOwned(i);
+                    int TotDividend = dividend * f.getTotalShares(i);
+                    TotDividend = Math.round(TotDividend/100);
+                    CurrVal -= (long)TotDividend;
+                    revenue -= TotDividend;
                 } else {
-                    divident = 0;
+                    dividend = 0;
                 }
                 //This will never spend more than 50% of the revenue
 
@@ -251,7 +291,7 @@ public class MainActivity extends AppCompatActivity {
 
                 if(fullGame){                                                                       //store new values to DB
                     newFame = (int)Math.round(100*(double)CurrVal/TotVal);                          //Old fame is discarded
-                    if (divident != 0) newFame += 100;
+                    if (dividend != 0) newFame += 100;
                     newFame += DBHandler.getCompFame(f.getName(i));                                 //Calculate new Fame
 
                     DBHandler.setCompFame(f.getName(i), newFame);
@@ -274,18 +314,18 @@ public class MainActivity extends AppCompatActivity {
             if (fullGame) prevWorth = DBHandler.getPrevNetWorth();
             else prevWorth = Math.round( f.NetWorth()*0.7 );
 
-            p.alterMoney(0-playerDivident);
+            p.alterMoney(0-playerDividend);
 
             long tax = taxes(f.NetWorth() + p.getMoney() - prevWorth);
             p.setMoney(p.getMoney() - tax);
 
             if (fullGame) {
                 DBHandler.setPrevNetWorth(f.NetWorth()+p.getMoney());
-                DBHandler.setPlayerMoney(p.getMoney()); //Update player money (dividents added)
+                DBHandler.setPlayerMoney(p.getMoney()); //Update player money (dividends added)
             }
 
             int newCompCounter =0;
-            int NumOfBankrupties = 0;
+            int NumOfBankruptcies = 0;
 
             if (fullGame) {                             //ADDING-REMOVING Companies
                 //The changes on outlooks here are only for the limits of adding and removing companies
@@ -317,13 +357,13 @@ public class MainActivity extends AppCompatActivity {
 
             if(fullGame){
 
-                for (int i = 0; i < f.getNumComp(); i++) { //Declare Bankrupties
+                for (int i = 0; i < f.getNumComp(); i++) { //Declare Bankruptcies
                     if (DBHandler.getCompPercValue(f.getName(i)) < -80 || DBHandler.getCompTotalValue(f.getName(i)) <= 0 || DBHandler.getCompCurrValue(f.getName(i))<=0 ) {
                         f.removeCompanyName(f.getName(i));
                         DBHandler.bankrupt(f.getName(i));
                         f.alterSectorOutlook(0, -(double) f.getCompTotalValue(i) / f.getSecEconSize(f.getCompSectorInt(i)));
                         f.alterSectorOutlook(f.getCompSectorInt(i)+1, (double) f.getCompTotalValue(i) / f.getSecEconSize(f.getCompSectorInt(i)));
-                        NumOfBankrupties++;
+                        NumOfBankruptcies++;
                     }
                 }
 
@@ -351,7 +391,7 @@ public class MainActivity extends AppCompatActivity {
             }
 
             //Get Economy Sizes
-            //Size2 is sum of Total Values of all companies. Size1 (summ of all shares not used at this point, but will be needed later.
+            //Size2 is sum of Total Values of all companies. Size1 (sum of all shares not used at this point, but will be needed later.
             long Size1 = f.calcEconSize1(); //Share Econ Size
             long Size2 = f.calcEconSize2(); //Company Econ Size (Current)
             long PSize2; //, PSize1;
@@ -365,7 +405,7 @@ public class MainActivity extends AppCompatActivity {
                 PSize2 = Math.round( Size2*(r.nextDouble()*0.4+0.8) );
             }
 
-            double NewEconOutlook = PreveconomyOutlook+( (Size2)/(PSize2) -1.0); //Not outlook affected by company changes, because their creation/bankruptcy is part of the size alterations
+            double NewEconOutlook = PrevEconomyOutlook+( (Size2)/(PSize2) -1.0); //Not outlook affected by company changes, because their creation/bankruptcy is part of the size alterations
             f.setSectorOutlook(0, NewEconOutlook);
 
             //set up GGEs before determining sector outlooks, because it might alter economic outlook
@@ -440,24 +480,130 @@ public class MainActivity extends AppCompatActivity {
             values[0]=25;
             publishProgress(values);
 
-            return new long[]{tax, NumOfBankrupties, newCompCounter, PSize2, playerDivident};
+            return new long[]{tax, NumOfBankruptcies, newCompCounter, PSize2, playerDividend};
         }
     }
 
+    //Helper function for getting the taxes the player pays when the term ends
+    private long taxes(long diff) {
+        long tax1 = Math.round((p.getLevel()*0.04)*diff);
+        long tax2;
+        if(p.getLevel()>2) {
+            tax2 = (long)((p.getLevel() - 2) * 0.02 * p.getMoney());
+        } else {
+            tax2=0;
+        }
+        int[] Upkeep = {25000, 85000, 750000, 1250000, 2500000, 5000000};
+
+        return tax1+tax2+Upkeep[p.getLevel()-1];
+    }
+
+
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        // Inflate the menu; this adds items to the action bar if it is present.
+        getMenuInflater().inflate(R.menu.menu_main, menu);
+        menu.findItem(R.id.menu_sound).setChecked(playSound);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        // Handle action bar item clicks here. The action bar will
+        // automatically handle clicks on the Home/Up button, so long
+        // as you specify a parent activity in AndroidManifest.xml.
+        int id = item.getItemId();
+
+        switch (id){
+            case R.id.menu_Exit:
+                ExitClicked();
+                break;
+            case R.id.menu_sound:
+                if(playSound) {
+                    if (soundPlayer.isPlaying()) soundPlayer.stop();
+                    soundPlayer.release();
+                }
+                playSound = !playSound;
+                if(playSound)         soundPlayer = MediaPlayer.create(MainActivity.this, R.raw.bell);
+                if(fullGame)DBHandler.setSound(playSound);
+                item.setChecked(playSound);
+                break;
+            case R.id.menu_NewGame:
+                SelectNewGame();
+                break;
+            case R.id.About:
+                LoadCredits();
+                break;
+            case R.id.QuickGame:
+                StartQuickGame();
+                break;
+        }
+
+        return super.onOptionsItemSelected(item);
+    }
+
+    //Method for confirming exit
+    @Override
+    public void onBackPressed() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle(getString(R.string.Quit));
+        builder.setMessage(getString(R.string.QuitMessage));
+
+        builder.setPositiveButton(getString(R.string.ExitButton), new DialogInterface.OnClickListener() {
+
+            public void onClick(DialogInterface dialog, int which) {
+                dialog.dismiss();
+                ExitClicked();
+            }
+
+        });
+
+        builder.setNegativeButton(getString(R.string.CancelButton), new DialogInterface.OnClickListener() {
+
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                // Do nothing
+                dialog.dismiss();
+            }
+        });
+
+        AlertDialog alert = builder.create();
+        alert.show();
+    }
+
+    @Override
+    protected void onDestroy() {
+        stopRepTask();
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(DayStartedMessageRec);
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(DayEndedMessageRec);
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(TermEndedMessageRec);
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(SoundAlteredRec);
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(SharesTransactionRec);
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(SpecificElementUpdate);
+        super.onDestroy();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        UpdateTopBar(topBarPlayer, topBarDaytime);
+        UpdateCommandsUI();
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
 
+        //Start the DB Handler and set for full (normal) game
         DBHandler = new MemoryDB(this);
         fullGame = true;
 
+        //parse the meetings from the xml
         MeetingXMLParser parser = new MeetingXMLParser();
         meetingsList = parser.parse(getApplicationContext().getResources().openRawResource(R.raw.meetings));
-        soundplayer = MediaPlayer.create(MainActivity.this, R.raw.bell);
+        soundPlayer = MediaPlayer.create(MainActivity.this, R.raw.bell);
 
-        setTitle(getString(R.string.app_name));
-
+        //First time or Load?
         if (DBHandler.getMaxSID() < 1) {
             time = new Daytime(LocalBroadcastManager.getInstance(MainActivity.this.getApplicationContext()));
             DBHandler.PrepGame(0, 0, Company.Sectors.values(), 1);
@@ -469,14 +615,17 @@ public class MainActivity extends AppCompatActivity {
             p = new Gamer(DBHandler.getPlayerMoney(), DBHandler.getLevel(), DBHandler.getAssets(), DBHandler.getFame());
         }
 
+        //is the market open
         dayOpen = time.getOpenDay();
 
+        //prepare info, news and sound variables
         playSound = DBHandler.PlaySound();
         infoGen = 0;
         eventGen = DBHandler.getEventGen();
         Infos.add(getString(R.string.noInfo));
         resetNews();
 
+        //set up the state of the economy and its effects
         state = getEconomyState(f.getSectorOutlook(0));
 
         switch (state) { //SetUp Current GGE
@@ -504,11 +653,13 @@ public class MainActivity extends AppCompatActivity {
                 break;
         }
 
+        //Load events or startup a new list
         if (fullGame) Events = DBHandler.retrieveEvents(time.totalDays());
         else {
             Events = new ArrayList<>();
         }
 
+        //Place effects for each active event
         if (Events.size() != 0) {
             for (Event event : Events) {
                 alterOutlooks(event.getType(), event.getMagnitude());
@@ -526,14 +677,21 @@ public class MainActivity extends AppCompatActivity {
             }
         };
 
+        //create the activity at this point
+        super.onCreate(savedInstanceState);
+        setTitle(getString(R.string.app_name));
+
+        //Register the game actions broadcast receivers
         LocalBroadcastManager.getInstance(this).registerReceiver(DayStartedMessageRec, new IntentFilter("DayStarted"));
-        LocalBroadcastManager.getInstance(this).registerReceiver(SharesTransactionedRec, new IntentFilter("SharesTransaction"));
-        LocalBroadcastManager.getInstance(this).registerReceiver(SharesShortTransactionedRec, new IntentFilter("SharesShortTransaction"));
+        LocalBroadcastManager.getInstance(this).registerReceiver(SharesTransactionRec, new IntentFilter("SharesTransaction"));
+        LocalBroadcastManager.getInstance(this).registerReceiver(SharesShortTransactionRec, new IntentFilter("SharesShortTransaction"));
         LocalBroadcastManager.getInstance(this).registerReceiver(SpecificElementUpdate, new IntentFilter("SpecificPriceChange"));
         LocalBroadcastManager.getInstance(this).registerReceiver(DayEndedMessageRec, new IntentFilter("DayEnded"));
         LocalBroadcastManager.getInstance(this).registerReceiver(TermEndedMessageRec, new IntentFilter("TermEnded"));
         LocalBroadcastManager.getInstance(this).registerReceiver(SoundAlteredRec, new IntentFilter("SoundAltered"));
         LocalBroadcastManager.getInstance(this).registerReceiver(LeveledUp, new IntentFilter("LevelUp"));
+
+        //This is used after a term update to restart the first day with the new data (mainly Scam resolution)
         LocalBroadcastManager.getInstance(this).registerReceiver(new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
@@ -550,7 +708,7 @@ public class MainActivity extends AppCompatActivity {
                     switch (f.getScamType(i)){
                         case 1:     //Empty Room (set share price to 0.1, and remaining shares to -total, revenue to - total value)
                             if(f.getScamRemDays(i)==0){
-                                f.Bankrupt(i);//Banctrupt company
+                                f.Bankrupt(i);//Bankrupt company
                                 if(fullGame)DBHandler.setDBCurrPrice(i, f.getShareCurrPrince(i));
                                 if(fullGame)DBHandler.setCompTotValue(f.getName(i), f.getCompTotalValue(i));
                                 f.removeExecutedScam(i);
@@ -604,7 +762,7 @@ public class MainActivity extends AppCompatActivity {
                             break;
                         case 5:     //Lawbreaker Scandal
                             if(f.getScamRemDays(i)==0){
-                                int magnitude = getLinnearRN(14)+1;
+                                int magnitude = getLinearRN(14)+1;
 
                                 f.setCompOutlook(i, f.getCompOutlook(i) - magnitude * 0.05);
                                 if(magnitude>4) f.setCompCurrValue(i, f.getCompCurrValue(i) - 10000*magnitude);
@@ -626,30 +784,29 @@ public class MainActivity extends AppCompatActivity {
             }
         }, new IntentFilter("DayReset"));
 
+        //Ring the bell (play sound) receiver
         LocalBroadcastManager.getInstance(this).registerReceiver(new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
                 if (playSound) {
-                    soundplayer.start();
+                    soundPlayer.start();
                 }
             }
         }, new IntentFilter("RingBell"));
 
+        //Time advancing event receiver
         LocalBroadcastManager.getInstance(this).registerReceiver(AdvanceTime, new IntentFilter("TimeForwarded"));
 
 
         //from here on is layout controls so set layout to main
-        //setContentView(R.layout.activity_main);
         setContentView(R.layout.activity_main);
 
-        topBarPlayer = (TextView) findViewById(R.id.PlayerDataInfo);
-        topBarDaytime = (TextView) findViewById(R.id.DaytimeInfo);
-
+        //Set up for invites
         if (fullGame) {
             nextInvite = DBHandler.getNextInviteTime();
             if (nextInvite == 0) {
                 nextInvite = Math.round(System.currentTimeMillis() / 1000);
-                nextInvite += 82800;
+                nextInvite += 82800; //set next invite for 23 hours from now
                 DBHandler.setNextInviteTime(nextInvite);
             } else {
                 long temp = Math.round(System.currentTimeMillis() / 1000);
@@ -661,31 +818,37 @@ public class MainActivity extends AppCompatActivity {
             }
         } else nextInvite = 0;
 
+        //Set up and Update the UI
+        topBarPlayer = (TextView) findViewById(R.id.PlayerDataInfo);
+        topBarDaytime = (TextView) findViewById(R.id.DaytimeInfo);
         UpdateTopBar(topBarPlayer, topBarDaytime);
         UpdateCentralUI();
 
+        //Does a meeting need to be shown in this das
         callforMeetings();
 
+        //start the background thread for advancing time
         startRepTask();
     }
 
+
+    //TIME FORWARDING TASK
+
+    //start the background thread for advancing time
     private void startRepTask(){
         r.run();
     }
 
+    //stop the background thread for advancing time
     private void stopRepTask(){
         BgHandler.removeCallbacks(r);
     }
 
-    private EconomyState getEconomyState(double EconomyOutlook) {
-        if(p.getLevel()==1) return EconomyState.Normal;
-        if(EconomyOutlook>0.75)return EconomyState.Boom;
-        if(EconomyOutlook>0.5)return EconomyState.Accel;
-        if(EconomyOutlook<-0.5)return EconomyState.Recess;
-        if(EconomyOutlook<-0.75)return EconomyState.Depres;
-        return EconomyState.Normal;
-    }
 
+
+    //NEWS
+
+    //Clear the news.
     private void resetNews(){
         News = new String[2];
         News[0] = getString(R.string.NoNewsTitle);
@@ -693,6 +856,7 @@ public class MainActivity extends AppCompatActivity {
         NewsPriority = 1;
     }
 
+    //Set the news. Each news item has a priority depending on the initiating event. Only the news with the highest priority is shown
     public void editNews(int priority, String title, String body){
         if(priority>NewsPriority){
             News[0]="";
@@ -704,6 +868,11 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+
+
+    //INVITES
+
+    //When the next invite becomes available, this method is called to do it
     private void callInvite(int level) {
         final int cost = level*(int)Math.round(Math.random() * 300 + 700);
         final int reward = level*(int)Math.round(Math.random() *3 + 7);
@@ -742,14 +911,11 @@ public class MainActivity extends AppCompatActivity {
         alert.show();
     }
 
-    public void NewsLoad(View v){
-        Intent intent = new Intent(MainActivity.this, NewsActivity.class);
-        Bundle data = new Bundle();
-        data.putStringArray("NewsArray", News);
-        intent.putExtras(data);
-        startActivity(intent);
-    }
 
+
+    //MEETINGS
+
+    //This function checks if a meeting exists for this day, and if so, loads and calls for it.
     private void callforMeetings(){
         if(!fullGame)return;
         stopRepTask();
@@ -761,6 +927,7 @@ public class MainActivity extends AppCompatActivity {
         startRepTask();
     }
 
+    //This function calls for MeetingActivity and shows the relevant meeting
     private void LaunchMeeting(String title, ArrayList<String> speech) {
         Intent intent = new Intent(MainActivity.this, MeetingActivity.class);
         Bundle data = new Bundle();
@@ -770,83 +937,33 @@ public class MainActivity extends AppCompatActivity {
         startActivity(intent);
     }
 
-
-    private void UpdateCentralUI() {
-        LinearLayout parentLayout = (LinearLayout)findViewById(R.id.Main_CentralLayout);
-        LayoutInflater layoutInflater = getLayoutInflater();
-        View view;
-        int intprice;
-        double dprice;
-        parentLayout.removeAllViews();
-        for(int i=0;i<f.getNumComp();i++){
-            view = layoutInflater.inflate(R.layout.main_share, parentLayout, false);
-            LinearLayout shareData = (LinearLayout)view.findViewById(R.id.shareData);
-
-            TextView shareInfo = (TextView)shareData.findViewById(R.id.shareInfo);
-            shareInfo.setId(200000 + i);
-            shareInfo.setText(f.getName(i));
-            intprice = f.getShareCurrPrince(i);
-            dprice = (double)intprice/100;
-            String zerodigit = "";
-            if(intprice%10==0){zerodigit="0";}
-            TextView sharePrices = (TextView)shareData.findViewById(R.id.sharePrice);
-            sharePrices.setId(100000 + i);
-            sharePrices.setText(Double.toString(dprice) + zerodigit);
-
-            Button Buy = (Button)shareData.findViewById(R.id.BuyButton);
-            Buy.setId(300000 + i);
-            Buy.setText(getString(R.string.Buy_Button));
-            if(dayOpen & (p.getMoney()>0)) {
-                Buy.setEnabled(true);
-                Buy.setTextColor(0xffffffff);
-            } else if(dayOpen & (p.getLevel()>=4)){
-                Buy.setEnabled(true);
-                Buy.setTextColor(0xffff0000);
-            } else {
-                Buy.setEnabled(false);
-                Buy.setTextColor(0xff000000);
-            }
-            Button Sell = (Button)shareData.findViewById(R.id.SellButton);
-            Sell.setId(400000 + i);
-            Sell.setText(getString(R.string.Sell_Button));
-            if((f.getSharesOwned(i)>0) & dayOpen) {
-                Sell.setEnabled(true);
-                Sell.setTextColor(0xffffffff);
-            } else if(p.getLevel()>=4 & !f.isShorted(i) & dayOpen){
-                Sell.setEnabled(true);
-                Sell.setTextColor(0xffff0000); //Red Color for short positions
-            } else {
-                Sell.setEnabled(false);
-                Sell.setTextColor(0xff000000);
-            }
-
-            parentLayout.addView(shareData);
+    //Get the meeting that must be shown on a specific day (usually this day)
+    public Meeting getMeetingbyDay(int day){
+        //Denote level by giving negative day
+        //Denote PGE meetings by giving day 0
+        for (int i = 0; i < meetingsList.size(); i++) {
+            if(meetingsList.get(i).getDay()==day) return meetingsList.get(i);
         }
+        return null;
     }
 
-    private BroadcastReceiver AdvanceTime = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, final Intent intent) {
-            new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    time.increment(10);
-                    callforTransactions();
-                    callInfoGen();
-                    f.revenue();
-                }
-            }
-            ).start();
-            UpdateTopBar(topBarPlayer, topBarDaytime);
-            if (fullGame) {
-                DBHandler.setHour(time.getHour(), time.getMin());
-                for (int i = 0; i < f.getNumComp(); i++) {
-                    DBHandler.setCompRevenue(i, f.getCompRevenue(i));
-                }
-            }
-        }
-    };
+/*
+    //This will be used for getting all titles in a list for the player to choose one to load.
+    public String[] getAllMeetingTitles(){
+        String[] titles = new String[meetingsList.size()];
 
+        for (int i = 0; i < meetingsList.size(); i++) {
+            titles[i]=meetingsList.get(i).getMeetingTitle();
+        }
+        return titles;
+    }
+*/
+
+
+
+    //INFO / RUMORS
+
+    //This is used for accumulating random numbers in the info variable and getting a new info when needed
     private void callInfoGen() {
         infoGen += (0.05+Math.random()*0.05)*(1+p.getAssets());
         if(infoGen>=1){
@@ -859,6 +976,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    //This is called to get the new info and add it in the list
     private String getNewInfo() {
         String info="";
 
@@ -867,8 +985,8 @@ public class MainActivity extends AppCompatActivity {
         int type;
         double truthlimit = (6-p.getLevel())*0.06;
         if(r.nextDouble()<0.25) type=1;
-        else type=0; //0: share, 1: Scams.
-        boolean truth = r.nextDouble() >= truthlimit;
+        else type=0; //0: Share, 1: Scams.
+        boolean truth = r.nextDouble() >= truthlimit; //True info or false
 
         int reference = r.nextInt(f.getNumComp());
         info+=getString(R.string.InfoUser)+Integer.toString(user)+": ";
@@ -911,10 +1029,10 @@ public class MainActivity extends AppCompatActivity {
         return info;
     }
 
+    //These infos are always true. They are used for Scams.
+    //For Asset info use function below
+    //This automatically adds the info to Infos List;
     public static String addCertainInfo(Context context, int reference, int user){
-        //These infos are always true. They are to be used for Scams.
-        //For Asset info use function below
-        //This automatically adds the info to Infos List;
 
         String info ="";
         if(reference>f.getNumComp()) return info;
@@ -937,6 +1055,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    //This function is used when the player uses an asset to get certain info
     public static String addAssetInfo(Context context){
         //These info are always true.
         //This removes an asset from DB and player
@@ -977,587 +1096,11 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private BroadcastReceiver DayStartedMessageRec = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            Random random = new Random();
 
-            for (int i = 0; i < f.getNumComp(); i++) {
-                if(f.getShortRemainingDays(i)==0){
-                    p.alterMoney(f.getPosShortAmount(i) * f.getShareCurrPrince(i));
-                    f.clearShort(i);
-                }
-            }
 
-            if(fullGame)DBHandler.setPlayerMoney(p.getMoney());
+    //EVENTS
 
-            UpdateTopBar(topBarPlayer, topBarDaytime);
-
-            if(fullGame)DBHandler.ShortSettle(time.totalDays());
-
-            int level = p.getLevel();
-            eventGen += random.nextInt(100)*(level-2)*(level-1);
-            if(eventGen>=1000){
-                if(level>=3)generateEvent(); //RGEs start at level 3
-                eventGen=0;
-            }
-            if(fullGame)DBHandler.setEventGen(eventGen);
-            dayOpen = true;
-            UpdateCommandsUI();
-
-            switch (time.getDay()) {        //In Term outlook alteration (outlook partially achieved)
-                case 25: //half company outlooks
-                    for (int i = 0; i < f.getNumComp(); i++) {
-                        f.setCompOutlook(i, f.getCompOutlook(i) / 2);
-                        DBHandler.setCompOutlook(f.getName(i), f.getCompOutlook(i));
-                    }
-                    break;
-                case 50: //zero all company outlooks
-                    for (int i = 0; i < f.getNumComp(); i++) {
-                        f.setCompOutlook(i, 0);
-                        DBHandler.setCompOutlook(f.getName(i), 0);
-                    }
-                    break;
-                default:
-                    break;
-            }
-
-            f.DayOpenShares();
-
-            LocalBroadcastManager.getInstance(MainActivity.this).sendBroadcast(new Intent("RingBell"));
-
-            Toast.makeText(MainActivity.this, getString(R.string.ToastDayStart), Toast.LENGTH_SHORT).show();
-        }
-    };
-
-
-    private void generateEvent() {
-        Random random = new Random();
-        int type = random.nextInt(5)+1;
-        int magnitude = random.nextInt(70)+31;
-        Event event = new Event(type, magnitude);
-        Events.add(event);
-        if(fullGame)DBHandler.addEvent(event, time.totalDays(event.getDuration()));
-        alterOutlooks(event.getType(), event.getMagnitude());
-    }
-
-    public void alterOutlooks(int type, int magnitude){
-        switch (type){
-            case 1: //Earthquake
-                f.setSectorEventOutlook(f.getSectorOutlookIndex("Constr"), 2*(double)magnitude/100);
-                f.setSectorEventOutlook(f.getSectorOutlookIndex("Defence"), 2*(double)magnitude/100);
-                f.setSectorEventOutlook(f.getSectorOutlookIndex("Educ"), 2*(double)magnitude/100);
-                f.setSectorEventOutlook(f.getSectorOutlookIndex("Entert"), -2*(double)magnitude/100);
-                f.setSectorEventOutlook(f.getSectorOutlookIndex("Food"), -2 * (double) magnitude / 100);
-                editNews(45+(int)Math.round((double)magnitude/10), getString(R.string.NewsQuakeTitle), getString(R.string.NewsQuake, (double)magnitude/10));
-                break;
-            case 2: //Typhoon
-                f.setSectorEventOutlook(f.getSectorOutlookIndex("Constr"), 2*(double)magnitude/100);
-                f.setSectorEventOutlook(f.getSectorOutlookIndex("Telecom"), 2*(double)magnitude/100);
-                f.setSectorEventOutlook(f.getSectorOutlookIndex("Oil"), -2*(double)magnitude/100);
-                f.setSectorEventOutlook(f.getSectorOutlookIndex("Transp"), -2 * (double) magnitude / 100);
-                editNews(50+(int)Math.floor(magnitude/20), getString(R.string.NewsTyphoonTitle), getString(R.string.NewsTyphoon, (int)Math.round((double) magnitude / 20)));
-                break;
-            case 3: //Explosion
-                f.setSectorEventOutlook(f.getSectorOutlookIndex("Constr"), 2*(double)magnitude/100);
-                f.setSectorEventOutlook(f.getSectorOutlookIndex("Defence"), 2*(double)magnitude/100);
-                f.setSectorEventOutlook(f.getSectorOutlookIndex("Tech"), 2*(double)magnitude/100);
-                f.setSectorEventOutlook(f.getSectorOutlookIndex("Entert"), -2*(double)magnitude/100);
-                f.setSectorEventOutlook(f.getSectorOutlookIndex("Tourism"), -2*(double)magnitude/100);
-                editNews(15+magnitude, getString(R.string.NewsExplosionTitle), getString(R.string.NewsExplosion));
-                break;
-            case 4: //Riots
-                f.setSectorEventOutlook(f.getSectorOutlookIndex("Defence"), 2*(double)magnitude/100);
-                f.setSectorEventOutlook(f.getSectorOutlookIndex("Telecom"), 2*(double)magnitude/100);
-                f.setSectorEventOutlook(f.getSectorOutlookIndex("Tech"), 2*(double)magnitude/100);
-                f.setSectorEventOutlook(f.getSectorOutlookIndex("Food"), -2*(double)magnitude/100);
-                f.setSectorEventOutlook(f.getSectorOutlookIndex("Oil"), -2*(double)magnitude/100);
-                f.setSectorEventOutlook(f.getSectorOutlookIndex("Entert"), -2*(double)magnitude/100);
-                editNews(10+Math.round(magnitude/2), getString(R.string.NewsRiotsTitle), getString(R.string.NewsRiots));
-                break;
-            case 5: //War
-                f.setSectorEventOutlook(f.getSectorOutlookIndex("Defence"), 2*(double)magnitude/100);
-                f.setSectorEventOutlook(f.getSectorOutlookIndex("Tech"), 2*(double)magnitude/100);
-                f.setSectorEventOutlook(f.getSectorOutlookIndex("Oil"), 2*(double)magnitude/100);
-                f.setSectorEventOutlook(f.getSectorOutlookIndex( "Constr"), -2*(double)magnitude/100);
-                f.setSectorEventOutlook(f.getSectorOutlookIndex( "Transp"), -2*(double)magnitude/100);
-                f.setSectorEventOutlook(f.getSectorOutlookIndex( "Food"), -2*(double)magnitude/100);
-                f.setSectorEventOutlook(f.getSectorOutlookIndex( "Telecom"), -2*(double)magnitude/100);
-                f.setSectorEventOutlook(f.getSectorOutlookIndex( "Entert"), -2*(double)magnitude/100);
-                f.setSectorEventOutlook(f.getSectorOutlookIndex( "Educ"), -2*(double)magnitude/100);
-                f.setSectorEventOutlook(f.getSectorOutlookIndex( "Tourism"), -2*(double)magnitude/100);
-                editNews(150, getString(R.string.NewsWarTitle), getString(R.string.NewsWar));
-                break;
-            default: //Unknown event, assume earthquake
-                f.setSectorEventOutlook(f.getSectorOutlookIndex("Constr"), 2*(double)magnitude/100);
-                f.setSectorEventOutlook(f.getSectorOutlookIndex("Defence"), 2*(double)magnitude/100);
-                f.setSectorEventOutlook(f.getSectorOutlookIndex("Educ"), 2*(double)magnitude/100);
-                f.setSectorEventOutlook(f.getSectorOutlookIndex("Entert"), -2*(double)magnitude/100);
-                f.setSectorEventOutlook(f.getSectorOutlookIndex("Food"), -2*(double)magnitude/100);
-                editNews(45+(int)Math.round((double)magnitude/10), getString(R.string.NewsQuakeTitle), getString(R.string.NewsQuake, (double)magnitude/10));
-        }
-    }
-
-    public static int getLinnearRN(int maxSize){
-        //Get a linearly multiplied random number
-        int randomMultiplier = maxSize * (maxSize + 1) / 2;
-        Random r=new Random();
-        int randomInt = r.nextInt(randomMultiplier);
-
-        int linearRN = 1;
-        for(int i=maxSize; randomInt >= 0; i--){
-            randomInt -= i;
-            linearRN++;
-        }
-
-        return linearRN;
-    }
-
-    private BroadcastReceiver LeveledUp = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            p.setLevel(p.getLevel()+1);
-            if(fullGame)DBHandler.setLevel(p.getLevel());
-            long priceMoney=0;
-            int prizeAssets=p.getAssets();
-            switch (p.getLevel()){
-                case 2: {
-                    priceMoney=25000;
-                    prizeAssets+=2;
-                    setUpGGEs(state, 1);
-                    Meeting meeting = getMeetingbyDay(-2);
-                    LaunchMeeting(meeting.getMeetingTitle(), meeting.getMeetingSpeech());
-                    break;
-                }
-                case 3: {
-                    priceMoney=120000;
-                    prizeAssets+=2;
-                    Meeting meeting = getMeetingbyDay(-3);
-                    LaunchMeeting(meeting.getMeetingTitle(), meeting.getMeetingSpeech());
-                    break;
-                }
-                case 4: {
-                    priceMoney=250000;
-                    prizeAssets+=3;
-                    Meeting meeting = getMeetingbyDay(-4);
-                    LaunchMeeting(meeting.getMeetingTitle(), meeting.getMeetingSpeech());
-                    break;
-                }
-                case 5: {
-                    priceMoney=500000;
-                    prizeAssets+=4;
-//                    Meeting meeting = getMeetingbyDay(-5);
-//                    LaunchMeeting(meeting.getMeetingTitle(), meeting.getMeetingSpeech());
-                    break;
-                }
-                case 6: {
-                    prizeAssets+=6;
-//                    Meeting meeting = getMeetingbyDay(-6);
-//                    LaunchMeeting(meeting.getMeetingTitle(), meeting.getMeetingSpeech());
-                    break;
-                }
-                default:
-                    break;
-            }
-
-            p.alterMoney(priceMoney*100);
-            p.setAssets(prizeAssets);
-            if(fullGame){
-                DBHandler.setAssets(p.getAssets());
-                DBHandler.setPlayerMoney(p.getMoney());
-            }
-            UpdateTopBar(topBarPlayer, topBarDaytime);
-        }
-    };
-
-    private void callforTransactions() {
-        if(!dayOpen) return;
-        int temp;
-        Random random = new Random();
-
-        for(int i=0;i<f.getNumComp();i++) {
-            if (f.getCompCurrValue(i) <= 0){ //If Company bankrupt, sell all shares.
-                if(f.getShareCurrPrince(i)>100){
-                    Intent intent = new Intent("SharesTransaction");
-                    Bundle data = new Bundle();
-                    data.putInt("SID", i);
-                    data.putInt("amount", f.getTotalShares(i)/5);
-                    data.putInt("atPrice", f.getShareCurrPrince(i));
-                    data.putBoolean("ByPlayer", false);
-                    intent.putExtras(data);
-                    LocalBroadcastManager.getInstance(MainActivity.this).sendBroadcast(intent);
-                }
-            } else {
-            temp = getSharesAmount(random, f.getAvg(i), f.getCap(i), f.getTotalShares(i));
-            if (temp != 0) {
-                Intent intent = new Intent("SharesTransaction");
-                Bundle data = new Bundle();
-                data.putInt("SID", i);
-                data.putInt("amount", temp);
-                data.putInt("atPrice", f.getShareCurrPrince(i));
-                data.putBoolean("ByPlayer", false);
-                intent.putExtras(data);
-                LocalBroadcastManager.getInstance(MainActivity.this).sendBroadcast(intent);
-            }
-            }
-        }
-    }
-
-    public int getSharesAmount(Random random, double Avg, double Cap, int total) {
-        double determinant = getDeterminant(Avg, Cap);
-
-        determinant += random.nextDouble() * 2 - 1;
-        double am = Math.min(Math.abs(random.nextGaussian()), 3) * determinant * 100;
-        if (Math.abs(am) <= 20) am = Math.signum(determinant) * random.nextInt(50) + 20;
-        if (Math.abs(am) > 0.1 * total) am = Math.signum(am) * 0.1 * total;
-        return (int) Math.round(am);
-
-    }
-
-    public double getDeterminant(double Avg, double Cap){
-        return Avg/Cap - 1;
-    }
-
-    private BroadcastReceiver SharesTransactionedRec = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            Bundle data = intent.getExtras();
-            int SID = data.getInt("SID");
-            int amount = data.getInt("amount");
-            int oldPrice = data.getInt("atPrice");
-            boolean byPlayer = data.getBoolean("ByPlayer");
-
-            if(byPlayer){
-                f.TransactShares(SID, amount);
-                p.alterMoney(amount*oldPrice);
-                if(fullGame) {
-                    DBHandler.TransactShare(SID, f.getSharesOwned(SID), p.getMoney());
-                    String ac = "";
-                    if(amount>0) ac+="Bought ";
-                    else ac+="Sold ";
-                    ac+= amount + " shares of "+f.getName(SID)+" at $"+(((float)oldPrice)/100)+" each.";
-                    DBHandler.RecordPlayerAction(time.totalDays(), ac);
-                }
-
-                UpdateCommandsUI();
-            }
-
-            f.alterRemShares(SID, amount);
-            if(fullGame)DBHandler.setRemShares(SID, f.getRemShares(SID));
-
-            double cap = (2*f.getCap(SID) + f.getAvg(SID))/3;
-
-            int newPrice;
-
-            double dnewPrice = getNewPrice(cap, (double)f.getRemShares(SID)/f.getTotalShares(SID)) + Math.random()*35;
-            dnewPrice = ((double)oldPrice+dnewPrice)/2;
-
-            if(dnewPrice>35000){
-                f.doubleShares(SID);
-                cap = (2*f.getCap(SID) + f.getAvg(SID))/3;
-                if(fullGame)DBHandler.setCompTotalShares(SID, f.getTotalShares(SID));
-                editNews(25, getString(R.string.NewsDoubleShares, f.getName(SID)), getString(R.string.NewsDoubleSharesBody, f.getName(SID)));
-                dnewPrice = getNewPrice(cap, (double)f.getRemShares(SID)/f.getTotalShares(SID)) + Math.random()*35;
-            } else if(dnewPrice<1500){
-                f.halfShares(SID);
-                cap = (2*f.getCap(SID) + f.getAvg(SID))/3;
-                if(fullGame)DBHandler.setCompTotalShares(SID, f.getTotalShares(SID));
-                editNews(25, getString(R.string.NewsHalfShares, f.getName(SID)), getString(R.string.NewsHalfSharesBody, f.getName(SID)));
-                dnewPrice = getNewPrice(cap, (double)f.getRemShares(SID)/f.getTotalShares(SID)) + Math.random()*35;
-            }
-
-            newPrice = (int)Math.round(dnewPrice);
-
-            if(newPrice<=50) {
-                newPrice=50+(int)Math.round(Math.random() * 30);   //No price less than $0.50
-            }
-
-            f.setShareCurrPrice(SID, newPrice);
-            if (fullGame) DBHandler.setDBCurrPrice(SID, newPrice);
-
-            Intent intent1 = new Intent("SpecificPriceChange");
-            Bundle data1 = new Bundle();
-            data1.putInt("SID", SID);
-            data1.putInt("newPrice", newPrice);
-            data1.putInt("oldPrice", oldPrice);
-            data1.putBoolean("PlayerOwner", f.getSharesOwned(SID)>0);
-            intent1.putExtras(data1);
-            LocalBroadcastManager.getInstance(MainActivity.this).sendBroadcast(intent1);
-        }
-    };
-
-    private double getNewPrice(double cap, double x){
-        x = 0.5-x;                          //To center at 0, reversing sign
-        return 0.5 * cap + 1.5 * cap / (1 + Math.exp(x));
-    }
-
-    private BroadcastReceiver SharesShortTransactionedRec = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            Bundle data = intent.getExtras();
-            int SID = data.getInt("SID");
-            int amount = data.getInt("amount");
-            int oldPrice = data.getInt("atPrice");
-            int days = data.getInt("Days");
-
-            f.ShortShare(SID, amount, days);
-            p.alterMoney(amount * oldPrice);
-            if(fullGame)DBHandler.ShortShare(SID, amount, oldPrice, time.totalDays(days), p.getMoney());
-
-            amount = Math.round(amount/2);
-            f.alterRemShares(SID, amount);
-            int remaining = f.getRemShares(SID);
-            if(fullGame)DBHandler.setRemShares(SID, remaining);
-
-            UpdateCommandsUI();
-
-            int newPrice;
-            double cap = (2*f.getCap(SID) + f.getAvg(SID))/3;
-            double dnewPrice = getNewPrice(cap, (double)f.getRemShares(SID)/f.getTotalShares(SID)) + Math.random()*35;
-
-
-            if(dnewPrice>65000){
-                f.doubleShares(SID);
-                cap = (2*f.getCap(SID) + f.getAvg(SID))/3;
-                if(fullGame)DBHandler.setCompTotalShares(SID, f.getTotalShares(SID));
-                editNews(25, getString(R.string.NewsDoubleShares, f.getName(SID)), getString(R.string.NewsDoubleSharesBody, f.getName(SID)));
-                dnewPrice = getNewPrice(cap, (double)f.getRemShares(SID)/f.getTotalShares(SID)) + Math.random()*35;
-            } else if(dnewPrice<1800){
-                f.halfShares(SID);
-                cap = (2*f.getCap(SID) + f.getAvg(SID))/3;
-                if(fullGame)DBHandler.setCompTotalShares(SID, f.getTotalShares(SID));
-                editNews(25, getString(R.string.NewsHalfShares, f.getName(SID)), getString(R.string.NewsHalfSharesBody, f.getName(SID)));
-                dnewPrice = getNewPrice(cap, (double)f.getRemShares(SID)/f.getTotalShares(SID)) + Math.random()*35;
-            }
-
-            newPrice = (int)Math.round(dnewPrice);
-
-            if(newPrice<=50) {
-                newPrice=50+(int)Math.round(Math.random() * 30);   //No price less than $0.50
-            }
-
-
-            f.setShareCurrPrice(SID, newPrice);
-            if(fullGame)DBHandler.setDBCurrPrice(SID, newPrice);
-
-            Intent intent1 = new Intent("SpecificPriceChange");
-            Bundle data1 = new Bundle();
-            data1.putInt("SID", SID);
-            data1.putInt("newPrice", newPrice);
-            data1.putInt("oldPrice", oldPrice);
-            data1.putBoolean("PlayerOwner", f.getSharesOwned(SID)>0);
-            intent1.putExtras(data1);
-            LocalBroadcastManager.getInstance(MainActivity.this).sendBroadcast(intent1);
-        }
-    };
-
-    private BroadcastReceiver SpecificElementUpdate = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            Bundle data = intent.getExtras();
-            int SID = data.getInt("SID");
-            int price = data.getInt("newPrice");
-            int oldPrice = data.getInt("oldPrice");
-            boolean playerOwner = data.getBoolean("PlayerOwner");
-
-            String zerodigit = "";
-            if(price%10==0){zerodigit="0";}
-            TextView sharePrices = (TextView)findViewById(100000 + SID);
-            if(price>oldPrice) {
-                sharePrices.setTextColor(0xff00ff00); //Color green for price going up
-            } else if (price<oldPrice) {
-                sharePrices.setTextColor(0xffff0000); //Color red for price going down
-            } else {
-                sharePrices.setTextColor(0xffffffff); //Color white for price unchanged
-            }
-            sharePrices.setText(Double.toString((double)price/100) + zerodigit);
-
-            Button Sell = (Button)findViewById(400000 + SID);
-            if(playerOwner & dayOpen){
-                Sell.setEnabled(true);
-                Sell.setTextColor(0xffffffff);
-            } else if(p.getLevel()>=4 & !f.isShorted(SID)& dayOpen){
-                Sell.setEnabled(true);
-                Sell.setTextColor(0xffff0000);
-            } else {
-                Sell.setEnabled(false);
-                Sell.setTextColor(0xff000000);
-            }
-        }
-    };
-
-    private BroadcastReceiver SoundAlteredRec = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            if(playSound) {
-                if (soundplayer.isPlaying()) soundplayer.stop();
-                soundplayer.release();
-            }
-            playSound = !playSound;
-            if(playSound) soundplayer = MediaPlayer.create(MainActivity.this, R.raw.bell);
-            if(fullGame)DBHandler.setSound(playSound);
-        }
-    };
-
-    public static void callScam(int cid) {
-        if(f.isScam(cid)){
-            f.removeCalledScam(cid);
-            if(fullGame)DBHandler.removeScam(cid);
-        } else {
-            p.setAssets(p.getAssets()-1);
-            if(fullGame)DBHandler.setAssets(p.getAssets());
-        }
-    }
-
-    private BroadcastReceiver DayEndedMessageRec = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            dayOpen = false;
-            LocalBroadcastManager.getInstance(MainActivity.this).sendBroadcast(new Intent("RingBell"));
-
-            f.DayCloseShares();
-            if(fullGame) {
-                for (int i = 0; i < DBHandler.getMaxSID(); i++) {
-                    DBHandler.DayCloseShare(i, f.getLastClose(i), time.totalDays(), f.getShareCandleData(i));
-                    DBHandler.setCompCurrValue(f.getName(i), i, f.getCompCurrValue(i), time.totalDays());
-                }
-            }
-
-            for(Event event:Events){
-                    event.dayEnded();
-                if(event.eventEnded()) {
-                    alterOutlooks(event.getType(), 0-event.getMagnitude());
-                }
-            }
-
-            if(fullGame)DBHandler.ClearCompleteEvents(time.totalDays());
-
-            if(time.totalDays()%2==0) {//Infos cleared every 2 days
-                Infos.clear();
-                Infos.add(getString(R.string.noInfo));
-            }
-
-            if(p.getLevel()==5&(p.getMoney())/100>25000000){
-                LocalBroadcastManager.getInstance(MainActivity.this).sendBroadcast(new Intent("LevelUp"));
-            }
-
-            if((p.getMoney()+f.NetWorth())<-10000000) {
-                stopRepTask();
-                if (p.getAssets() > 0) {
-                    p.setAssets(p.getAssets() - 1);
-                    if(fullGame)DBHandler.setAssets(p.getAssets());
-                    p.setMoney(2500000);
-                    if(fullGame)DBHandler.setPlayerMoney(p.getMoney());
-                    Toast.makeText(MainActivity.this, getString(R.string.AvoidBankrupty), Toast.LENGTH_SHORT).show();
-                } else {
-
-                    AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
-
-                    builder.setTitle(getString(R.string.GameOver));
-                    builder.setMessage(getString(R.string.GameOverMessage));
-
-                    builder.setPositiveButton(getString(R.string.MessageOK), new DialogInterface.OnClickListener() {
-
-                        public void onClick(DialogInterface dialog, int which) {
-                            if(fullGame) {
-                                long timeInv = DBHandler.getNextInviteTime();
-                                DBHandler.clearData();
-                                DBHandler.PrepGame(timeInv, 0, Company.Sectors.values(), 1);
-                                f = new Finance(DBHandler, 4);
-                                UpdateCentralUI();
-                                p = new Gamer(DBHandler);
-                                time = new Daytime(LocalBroadcastManager.getInstance(MainActivity.this.getApplicationContext()));
-                                DBHandler.setEconomySize1(f.getEconSize1());
-                                DBHandler.setEconomySize2(f.getEconSize2());
-                                dialog.dismiss();
-                            } else ExitClicked();
-                        }
-
-                    });
-
-                    AlertDialog d = builder.create();
-                    d.show();
-                }
-            } else {
-                //Updating DB to show the NEXT day (and possibly term) than the one Just ENDED
-                if (time.getDay() == 60) {
-                    LocalBroadcastManager.getInstance(MainActivity.this).sendBroadcast(new Intent("TermEnded"));
-                } else {
-                    if(fullGame)DBHandler.setDay(time.getDay() + 1);
-                }
-            }
-            UpdateCommandsUI();
-            startRepTask();
-        }
-    };
-
-    //RUN ONLY ON UI THREAD
-    public void UpdateCommandsUI(){
-        Button B;
-        try{
-            for (int i = 0; i < f.getNumComp(); i++) {
-                B = (Button) findViewById(300000 + i); //Buy Button
-                if(dayOpen & (p.getMoney()>0)) {
-                    B.setEnabled(true);
-                    B.setTextColor(0xffffffff);
-                } else if(dayOpen & (p.getLevel()>= 4)){
-                    B.setEnabled(true);
-                    B.setTextColor(0xffff0000);
-                } else {
-                    B.setEnabled(false);
-                    B.setTextColor(0xff000000);
-                }
-
-                B = (Button) findViewById(400000 + i); //Sell Button
-                if (dayOpen & (f.getSharesOwned(i) > 0)) {
-                    B.setEnabled(true);
-                    B.setTextColor(0xffffffff);
-                } else if(p.getLevel()>=4 & !f.isShorted(i) & dayOpen){
-                    B.setEnabled(true);
-                    B.setTextColor(0xffff0000); //Red Color for short positions
-                } else {
-                    B.setEnabled(false);
-                    B.setTextColor(0xff000000);
-                }
-            }
-        } catch (Exception e){
-            e.printStackTrace();
-        }
-    }
-
-    public void MessagesLoad(View v){
-        Intent intent = new Intent(MainActivity.this, MessagesActivity.class);
-        Bundle data = new Bundle();
-        data.putBoolean("playsound", playSound);
-        data.putLong("Pmoney", p.getMoney());
-        data.putInt("level", p.getLevel());
-        data.putInt("assets", p.getAssets());
-        intent.putExtras(data);
-        startActivity(intent);
-    }
-
-    public void EconomyInfoLaunch(View v){
-        Intent intent = new Intent(MainActivity.this, EconomyInfoActivity.class);
-        Bundle data = new Bundle();
-        data.putBoolean("Sound", playSound);
-        data.putLong("Economy_size", f.getFullEconSize());
-        data.putInt("TotalCompanies", f.getNumComp());
-        data.putInt("SumOfShares", f.getSumShares());
-        data.putLong("Pmoney", p.getMoney());
-        data.putInt("level", p.getLevel());
-        data.putInt("assets", p.getAssets());
-        intent.putExtras(data);
-        startActivity(intent);
-    }
-
-    private BroadcastReceiver TermEndedMessageRec = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            stopRepTask();
-            new UpdateTerm().execute();
-        }
-    };
-
+    //When the economy outlook is updated, this function sets the new state and updates the news
     private void setUpGGEs(EconomyState Currstate, double newEconomyOutlook) {
         if(p.getLevel()<2)return; //GGEs start at Level 2;
         switch (Currstate){
@@ -1718,97 +1261,696 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-    public Meeting getMeetingbyDay(int day){
-        //Denote level by giving negative day
-        //Denote PGE meetings by giving day 0
-        for (int i = 0; i < meetingsList.size(); i++) {
-            if(meetingsList.get(i).getDay()==day) return meetingsList.get(i);
-        }
-        return null;
+    //Accumulate random numbers into events variable. When it reaches threshold, start new event.
+    private void generateEvent() {
+        Random random = new Random();
+        int type = random.nextInt(5)+1;
+        int magnitude = random.nextInt(70)+31;
+        Event event = new Event(type, magnitude);
+        Events.add(event);
+        if(fullGame)DBHandler.addEvent(event, time.totalDays(event.getDuration()));
+        alterOutlooks(event.getType(), event.getMagnitude());
     }
 
-/*
-    public String[] getAllMeetingTitles(){
-        String[] titles = new String[meetingsList.size()];
-
-        for (int i = 0; i < meetingsList.size(); i++) {
-            titles[i]=meetingsList.get(i).getMeetingTitle();
+    //Set up event effects
+    public void alterOutlooks(int type, int magnitude){
+        switch (type){
+            case 1: //Earthquake
+                f.setSectorEventOutlook(f.getSectorOutlookIndex("Constr"), 2*(double)magnitude/100);
+                f.setSectorEventOutlook(f.getSectorOutlookIndex("Defence"), 2*(double)magnitude/100);
+                f.setSectorEventOutlook(f.getSectorOutlookIndex("Educ"), 2*(double)magnitude/100);
+                f.setSectorEventOutlook(f.getSectorOutlookIndex("Entert"), -2*(double)magnitude/100);
+                f.setSectorEventOutlook(f.getSectorOutlookIndex("Food"), -2 * (double) magnitude / 100);
+                editNews(45+(int)Math.round((double)magnitude/10), getString(R.string.NewsQuakeTitle), getString(R.string.NewsQuake, (double)magnitude/10));
+                break;
+            case 2: //Typhoon
+                f.setSectorEventOutlook(f.getSectorOutlookIndex("Constr"), 2*(double)magnitude/100);
+                f.setSectorEventOutlook(f.getSectorOutlookIndex("Telecom"), 2*(double)magnitude/100);
+                f.setSectorEventOutlook(f.getSectorOutlookIndex("Oil"), -2*(double)magnitude/100);
+                f.setSectorEventOutlook(f.getSectorOutlookIndex("Transp"), -2 * (double) magnitude / 100);
+                editNews(50+(int)Math.floor(magnitude/20), getString(R.string.NewsTyphoonTitle), getString(R.string.NewsTyphoon, (int)Math.round((double) magnitude / 20)));
+                break;
+            case 3: //Explosion
+                f.setSectorEventOutlook(f.getSectorOutlookIndex("Constr"), 2*(double)magnitude/100);
+                f.setSectorEventOutlook(f.getSectorOutlookIndex("Defence"), 2*(double)magnitude/100);
+                f.setSectorEventOutlook(f.getSectorOutlookIndex("Tech"), 2*(double)magnitude/100);
+                f.setSectorEventOutlook(f.getSectorOutlookIndex("Entert"), -2*(double)magnitude/100);
+                f.setSectorEventOutlook(f.getSectorOutlookIndex("Tourism"), -2*(double)magnitude/100);
+                editNews(15+magnitude, getString(R.string.NewsExplosionTitle), getString(R.string.NewsExplosion));
+                break;
+            case 4: //Riots
+                f.setSectorEventOutlook(f.getSectorOutlookIndex("Defence"), 2*(double)magnitude/100);
+                f.setSectorEventOutlook(f.getSectorOutlookIndex("Telecom"), 2*(double)magnitude/100);
+                f.setSectorEventOutlook(f.getSectorOutlookIndex("Tech"), 2*(double)magnitude/100);
+                f.setSectorEventOutlook(f.getSectorOutlookIndex("Food"), -2*(double)magnitude/100);
+                f.setSectorEventOutlook(f.getSectorOutlookIndex("Oil"), -2*(double)magnitude/100);
+                f.setSectorEventOutlook(f.getSectorOutlookIndex("Entert"), -2*(double)magnitude/100);
+                editNews(10+Math.round(magnitude/2), getString(R.string.NewsRiotsTitle), getString(R.string.NewsRiots));
+                break;
+            case 5: //War
+                f.setSectorEventOutlook(f.getSectorOutlookIndex("Defence"), 2*(double)magnitude/100);
+                f.setSectorEventOutlook(f.getSectorOutlookIndex("Tech"), 2*(double)magnitude/100);
+                f.setSectorEventOutlook(f.getSectorOutlookIndex("Oil"), 2*(double)magnitude/100);
+                f.setSectorEventOutlook(f.getSectorOutlookIndex( "Constr"), -2*(double)magnitude/100);
+                f.setSectorEventOutlook(f.getSectorOutlookIndex( "Transp"), -2*(double)magnitude/100);
+                f.setSectorEventOutlook(f.getSectorOutlookIndex( "Food"), -2*(double)magnitude/100);
+                f.setSectorEventOutlook(f.getSectorOutlookIndex( "Telecom"), -2*(double)magnitude/100);
+                f.setSectorEventOutlook(f.getSectorOutlookIndex( "Entert"), -2*(double)magnitude/100);
+                f.setSectorEventOutlook(f.getSectorOutlookIndex( "Educ"), -2*(double)magnitude/100);
+                f.setSectorEventOutlook(f.getSectorOutlookIndex( "Tourism"), -2*(double)magnitude/100);
+                editNews(150, getString(R.string.NewsWarTitle), getString(R.string.NewsWar));
+                break;
+            default: //Unknown event, assume earthquake
+                f.setSectorEventOutlook(f.getSectorOutlookIndex("Constr"), 2*(double)magnitude/100);
+                f.setSectorEventOutlook(f.getSectorOutlookIndex("Defence"), 2*(double)magnitude/100);
+                f.setSectorEventOutlook(f.getSectorOutlookIndex("Educ"), 2*(double)magnitude/100);
+                f.setSectorEventOutlook(f.getSectorOutlookIndex("Entert"), -2*(double)magnitude/100);
+                f.setSectorEventOutlook(f.getSectorOutlookIndex("Food"), -2*(double)magnitude/100);
+                editNews(45+(int)Math.round((double)magnitude/10), getString(R.string.NewsQuakeTitle), getString(R.string.NewsQuake, (double)magnitude/10));
         }
-        return titles;
     }
-*/
 
-    private long taxes(long diff) {
-        long tax1 = Math.round((p.getLevel()*0.04)*diff);
-        long tax2;
-        if(p.getLevel()>2) {
-            tax2 = (long)((p.getLevel() - 2) * 0.02 * p.getMoney());
+    //This helper function is used for getting a random integer from a linear distribution instead of a
+    //normal one (all numbers have equal probability)
+    public static int getLinearRN(int maxSize){
+        //Get a linearly multiplied random number
+        int randomMultiplier = maxSize * (maxSize + 1) / 2;
+        Random r=new Random();
+        int randomInt = r.nextInt(randomMultiplier);
+
+        int linearRN = 1;
+        for(int i=maxSize; randomInt >= 0; i--){
+            randomInt -= i;
+            linearRN++;
+        }
+
+        return linearRN;
+    }
+
+
+
+    //SCAMS
+
+    //If the player decides to use an asset to (attempt to) expose a scam. If successful, they get the asset back. If not, they lose it.
+    public static void callScam(int cid) {
+        if(f.isScam(cid)){
+            f.removeCalledScam(cid);
+            if(fullGame)DBHandler.removeScam(cid);
         } else {
-            tax2=0;
+            p.setAssets(p.getAssets()-1);
+            if(fullGame)DBHandler.setAssets(p.getAssets());
         }
-        int[] Upkeep = {25000, 85000, 750000, 1250000, 2500000, 5000000};
-
-        return tax1+tax2+Upkeep[p.getLevel()-1];
     }
 
-    //Button And Menu Selections
 
-    @Override
-    protected void onDestroy() {
-        stopRepTask();
-        LocalBroadcastManager.getInstance(this).unregisterReceiver(DayStartedMessageRec);
-        LocalBroadcastManager.getInstance(this).unregisterReceiver(DayEndedMessageRec);
-        LocalBroadcastManager.getInstance(this).unregisterReceiver(TermEndedMessageRec);
-        LocalBroadcastManager.getInstance(this).unregisterReceiver(SoundAlteredRec);
-        LocalBroadcastManager.getInstance(this).unregisterReceiver(SharesTransactionedRec);
-        LocalBroadcastManager.getInstance(this).unregisterReceiver(SpecificElementUpdate);
-        super.onDestroy();
-    }
 
-    public void PlayerButtonClick(View v) {
-        Intent intent = new Intent(MainActivity.this, PlayerInfoActivity.class);
-        Bundle data = new Bundle();
-        data.putBoolean("playSound", playSound);
-        data.putLong("Pmoney", p.getMoney());
-        data.putInt("level", p.getLevel());
-        data.putInt("assets", p.getAssets());
-        data.putInt("next", getNextLevelPreq());
-        data.putLong("NetWorth", f.NetWorth());
-        if(fullGame) data.putStringArray("history", DBHandler.GetPlayerHistory());
-        else {
-            String[] values = new String[1];
-            values[0] = "History is only available at full games.";
-            data.putStringArray("history", values);
+
+    //Broadcast Receivers
+
+    //This is called every time time moves forward. It updates the daytime object, calls for transactions and revenue
+    private BroadcastReceiver AdvanceTime = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, final Intent intent) {
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    time.increment(10);
+                    callforTransactions();
+                    callInfoGen();
+                    f.revenue(getEconomyState());
+                }
+            }
+            ).start();
+            UpdateTopBar(topBarPlayer, topBarDaytime);
+            if (fullGame) {
+                DBHandler.setHour(time.getHour(), time.getMin());
+                for (int i = 0; i < f.getNumComp(); i++) {
+                    DBHandler.setCompRevenue(i, f.getCompRevenue(i));
+                }
+            }
         }
-        intent.putExtras(data);
-        startActivity(intent);
+    };
+
+    //Function to run on the start of every day (not the opening for trade, but right after the day updates)
+    private BroadcastReceiver DayStartedMessageRec = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            Random random = new Random();
+
+            for (int i = 0; i < f.getNumComp(); i++) {
+                if(f.getShortRemainingDays(i)==0){
+                    p.alterMoney(f.getPosShortAmount(i) * f.getShareCurrPrince(i));
+                    f.clearShort(i);
+                }
+            }
+
+            if(fullGame)DBHandler.setPlayerMoney(p.getMoney());
+
+            UpdateTopBar(topBarPlayer, topBarDaytime);
+
+            if(fullGame)DBHandler.ShortSettle(time.totalDays());
+
+            int level = p.getLevel();
+            eventGen += random.nextInt(100)*(level-2)*(level-1);
+            if(eventGen>=1000){
+                if(level>=3)generateEvent(); //RGEs start at level 3
+                eventGen=0;
+            }
+            if(fullGame)DBHandler.setEventGen(eventGen);
+            dayOpen = true;
+            UpdateCommandsUI();
+
+            switch (time.getDay()) {        //In Term outlook alteration (outlook partially achieved)
+                case 25: //half company outlooks
+                    for (int i = 0; i < f.getNumComp(); i++) {
+                        f.setCompOutlook(i, f.getCompOutlook(i) / 2);
+                        DBHandler.setCompOutlook(f.getName(i), f.getCompOutlook(i));
+                    }
+                    break;
+                case 50: //zero all company outlooks
+                    for (int i = 0; i < f.getNumComp(); i++) {
+                        f.setCompOutlook(i, 0);
+                        DBHandler.setCompOutlook(f.getName(i), 0);
+                    }
+                    break;
+                default:
+                    break;
+            }
+
+            f.DayOpenShares();
+
+            LocalBroadcastManager.getInstance(MainActivity.this).sendBroadcast(new Intent("RingBell"));
+
+            Toast.makeText(MainActivity.this, getString(R.string.ToastDayStart), Toast.LENGTH_SHORT).show();
+        }
+    };
+
+    //Call this when the player levels up. Show meetings if necessary.
+    private BroadcastReceiver LeveledUp = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            p.setLevel(p.getLevel()+1);
+            if(fullGame)DBHandler.setLevel(p.getLevel());
+            long priceMoney=0;
+            int prizeAssets=p.getAssets();
+            switch (p.getLevel()){
+                case 2: {
+                    priceMoney=25000;
+                    prizeAssets+=2;
+                    setUpGGEs(state, 1);
+                    Meeting meeting = getMeetingbyDay(-2);
+                    LaunchMeeting(meeting.getMeetingTitle(), meeting.getMeetingSpeech());
+                    break;
+                }
+                case 3: {
+                    priceMoney=120000;
+                    prizeAssets+=2;
+                    Meeting meeting = getMeetingbyDay(-3);
+                    LaunchMeeting(meeting.getMeetingTitle(), meeting.getMeetingSpeech());
+                    break;
+                }
+                case 4: {
+                    priceMoney=250000;
+                    prizeAssets+=3;
+                    Meeting meeting = getMeetingbyDay(-4);
+                    LaunchMeeting(meeting.getMeetingTitle(), meeting.getMeetingSpeech());
+                    break;
+                }
+                case 5: {
+                    priceMoney=500000;
+                    prizeAssets+=4;
+//                    Meeting meeting = getMeetingByDay(-5);
+//                    LaunchMeeting(meeting.getMeetingTitle(), meeting.getMeetingSpeech());
+                    break;
+                }
+                case 6: {
+                    prizeAssets+=6;
+//                    Meeting meeting = getMeetingByDay(-6);
+//                    LaunchMeeting(meeting.getMeetingTitle(), meeting.getMeetingSpeech());
+                    break;
+                }
+                default:
+                    break;
+            }
+
+            p.alterMoney(priceMoney*100);
+            p.setAssets(prizeAssets);
+            if(fullGame){
+                DBHandler.setAssets(p.getAssets());
+                DBHandler.setPlayerMoney(p.getMoney());
+            }
+            UpdateTopBar(topBarPlayer, topBarDaytime);
+        }
+    };
+
+    //This is called whenever the user alters the Play Sound option in the menu.
+    private BroadcastReceiver SoundAlteredRec = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if(playSound) {
+                if (soundPlayer.isPlaying()) soundPlayer.stop();
+                soundPlayer.release();
+            }
+            playSound = !playSound;
+            if(playSound) soundPlayer = MediaPlayer.create(MainActivity.this, R.raw.bell);
+            if(fullGame)DBHandler.setSound(playSound);
+        }
+    };
+
+    //This is called when each day ends (not when the market closes) save data and set up for the next day.
+    private BroadcastReceiver DayEndedMessageRec = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            dayOpen = false;
+            stopRepTask(); //here is the lag
+            LocalBroadcastManager.getInstance(MainActivity.this).sendBroadcast(new Intent("RingBell"));
+
+            f.DayCloseShares();
+            if(fullGame) {
+                for (int i = 0; i < DBHandler.getMaxSID(); i++) {
+                    DBHandler.DayCloseShare(i, f.getLastClose(i), time.totalDays(), f.getShareCandleData(i));
+                    DBHandler.setCompCurrValue(f.getName(i), i, f.getCompCurrValue(i), time.totalDays());
+                }
+            }
+
+            for(Event event:Events){
+                event.dayEnded();
+                if(event.eventEnded()) {
+                    alterOutlooks(event.getType(), 0-event.getMagnitude());
+                }
+            }
+
+            if(fullGame)DBHandler.ClearCompleteEvents(time.totalDays());
+
+            if(time.totalDays()%2==0) {//Infos cleared every 2 days
+                Infos.clear();
+                Infos.add(getString(R.string.noInfo));
+            }
+
+            //Level 6 is a hidden level, the user is aware of only 5 levels. The update happens automatically.
+            if(p.getLevel()==5&(p.getMoney())/100>25000000){
+                LocalBroadcastManager.getInstance(MainActivity.this).sendBroadcast(new Intent("LevelUp"));
+            }
+
+            if((p.getMoney()+f.NetWorth())<-10000000) { //Game Over?
+                if (p.getAssets() > 0) {
+                    p.setAssets(p.getAssets() - 1);
+                    if(fullGame)DBHandler.setAssets(p.getAssets());
+                    p.setMoney(2500000);
+                    if(fullGame)DBHandler.setPlayerMoney(p.getMoney());
+                    Toast.makeText(MainActivity.this, getString(R.string.AvoidBankrupty), Toast.LENGTH_SHORT).show();
+                } else { //Game Over!
+
+                    AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
+
+                    builder.setTitle(getString(R.string.GameOver));
+                    builder.setMessage(getString(R.string.GameOverMessage));
+
+                    builder.setPositiveButton(getString(R.string.MessageOK), new DialogInterface.OnClickListener() {
+
+                        public void onClick(DialogInterface dialog, int which) {
+                            if(fullGame) {
+                                long timeInv = DBHandler.getNextInviteTime();
+                                DBHandler.clearData();
+                                DBHandler.PrepGame(timeInv, 0, Company.Sectors.values(), 1);
+                                f = new Finance(DBHandler, 4);
+                                UpdateCentralUI();
+                                p = new Gamer(DBHandler);
+                                time = new Daytime(LocalBroadcastManager.getInstance(MainActivity.this.getApplicationContext()));
+                                DBHandler.setEconomySize1(f.getEconSize1());
+                                DBHandler.setEconomySize2(f.getEconSize2());
+                                dialog.dismiss();
+                            } else ExitClicked();
+                        }
+
+                    });
+
+                    AlertDialog d = builder.create();
+                    d.show();
+                }
+            } else {
+                //Updating DB to show the NEXT day (and possibly term) than the one Just ENDED
+                if (time.getDay() == 60) {
+                    LocalBroadcastManager.getInstance(MainActivity.this).sendBroadcast(new Intent("TermEnded"));
+                } else {
+                    if(fullGame)DBHandler.setDay(time.getDay() + 1);
+                }
+            }
+            UpdateCommandsUI();
+            startRepTask(); //restart time
+        }
+    };
+
+    //Update term broadcast receiver. Executes the Update term AsyncTask.
+    private BroadcastReceiver TermEndedMessageRec = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            stopRepTask(); //time restarts when clicking ok in the term update window.
+            new UpdateTerm().execute();
+        }
+    };
+
+
+
+
+
+    //PRICE UPDATES
+
+    //This function starts the process of price-altering transactions by the system for each share
+    private void callforTransactions() {
+        if(!dayOpen) return;
+        int temp;
+        Random random = new Random();
+
+        for(int i=0;i<f.getNumComp();i++) {
+            if (f.getCompCurrValue(i) <= 0){ //If Company bankrupt, sell all shares.
+                if(f.getShareCurrPrince(i)>100){
+                    Intent intent = new Intent("SharesTransaction");
+                    Bundle data = new Bundle();
+                    data.putInt("SID", i);
+                    data.putInt("amount", f.getTotalShares(i)/5);
+                    data.putInt("atPrice", f.getShareCurrPrince(i));
+                    data.putBoolean("ByPlayer", false);
+                    intent.putExtras(data);
+                    LocalBroadcastManager.getInstance(MainActivity.this).sendBroadcast(intent);
+                }
+            } else {
+            temp = getSharesAmount(random, f.getAvg(i), f.getCap(i), f.getTotalShares(i));
+            if (temp != 0) {
+                Intent intent = new Intent("SharesTransaction");
+                Bundle data = new Bundle();
+                data.putInt("SID", i);
+                data.putInt("amount", temp);
+                data.putInt("atPrice", f.getShareCurrPrince(i));
+                data.putBoolean("ByPlayer", false);
+                intent.putExtras(data);
+                LocalBroadcastManager.getInstance(MainActivity.this).sendBroadcast(intent);
+            }
+            }
+        }
     }
 
-    public void clickInfo(View v){
+    //How many share to transact
+    public int getSharesAmount(Random random, double Avg, double Cap, int total) {
+        double determinant = getDeterminant(Avg, Cap);
 
-        Intent intent = new Intent(MainActivity.this, InfoActivity.class );
-        Bundle data = new Bundle();
-        data.putLong("Pmoney", p.getMoney());
-        data.putInt("Plevel", p.getLevel());
-        data.putInt("Passets", p.getAssets());
-        data.putStringArrayList("Info", Infos);
-        data.putBoolean("playSound", playSound);
-        intent.putExtras(data);
-        startActivity(intent);
+        determinant += random.nextDouble() * 2 - 1;
+        double am = Math.min(Math.abs(random.nextGaussian()), 3) * determinant * 100;
+        if (Math.abs(am) <= 20) am = Math.signum(determinant) * random.nextInt(50) + 20;
+        if (Math.abs(am) > 0.1 * total) am = Math.signum(am) * 0.1 * total;
+        return (int) Math.round(am);
+
     }
 
+    //helper function for determining the amount of shares
+    public double getDeterminant(double Avg, double Cap){
+        return Avg/Cap - 1;
+    }
+
+    //This broadcast is launched whenever a shares  (normal)transaction occurs, by the system or the player, to
+    //update data and determine the new price
+    private BroadcastReceiver SharesTransactionRec = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            Bundle data = intent.getExtras();
+            int SID = data.getInt("SID");
+            int amount = data.getInt("amount");
+            int oldPrice = data.getInt("atPrice");
+            boolean byPlayer = data.getBoolean("ByPlayer");
+
+            if(byPlayer){
+                f.TransactShares(SID, amount);
+                p.alterMoney(amount*oldPrice);
+                if(fullGame) {
+                    DBHandler.TransactShare(SID, f.getSharesOwned(SID), p.getMoney());
+                    String ac = "";
+                    if(amount>0) ac+="Bought ";
+                    else ac+="Sold ";
+                    ac+= amount + " shares of "+f.getName(SID)+" at $"+(((float)oldPrice)/100)+" each.";
+                    DBHandler.RecordPlayerAction(time.totalDays(), ac);
+                }
+
+                UpdateCommandsUI();
+            }
+
+            f.alterRemShares(SID, amount);
+            if(fullGame)DBHandler.setRemShares(SID, f.getRemShares(SID));
+
+            double cap = (2*f.getCap(SID) + f.getAvg(SID))/3;
+
+            int newPrice;
+
+            double dnewPrice = getNewPrice(cap, (double)f.getRemShares(SID)/f.getTotalShares(SID)) + Math.random()*35;
+            dnewPrice = ((double)oldPrice+dnewPrice)/2;
+
+            if(dnewPrice>35000){
+                f.doubleShares(SID);
+                cap = (2*f.getCap(SID) + f.getAvg(SID))/3;
+                if(fullGame)DBHandler.setCompTotalShares(SID, f.getTotalShares(SID));
+                editNews(25, getString(R.string.NewsDoubleShares, f.getName(SID)), getString(R.string.NewsDoubleSharesBody, f.getName(SID)));
+                dnewPrice = getNewPrice(cap, (double)f.getRemShares(SID)/f.getTotalShares(SID)) + Math.random()*35;
+            } else if(dnewPrice<1500){
+                f.halfShares(SID);
+                cap = (2*f.getCap(SID) + f.getAvg(SID))/3;
+                if(fullGame)DBHandler.setCompTotalShares(SID, f.getTotalShares(SID));
+                editNews(25, getString(R.string.NewsHalfShares, f.getName(SID)), getString(R.string.NewsHalfSharesBody, f.getName(SID)));
+                dnewPrice = getNewPrice(cap, (double)f.getRemShares(SID)/f.getTotalShares(SID)) + Math.random()*35;
+            }
+
+            newPrice = (int)Math.round(dnewPrice);
+
+            if(newPrice<=50) {
+                newPrice=50+(int)Math.round(Math.random() * 30);   //No price less than $0.50
+            }
+
+            f.setShareCurrPrice(SID, newPrice);
+            if (fullGame) DBHandler.setDBCurrPrice(SID, newPrice);
+
+            Intent intent1 = new Intent("SpecificPriceChange");
+            Bundle data1 = new Bundle();
+            data1.putInt("SID", SID);
+            data1.putInt("newPrice", newPrice);
+            data1.putInt("oldPrice", oldPrice);
+            data1.putBoolean("PlayerOwner", f.getSharesOwned(SID)>0);
+            intent1.putExtras(data1);
+            LocalBroadcastManager.getInstance(MainActivity.this).sendBroadcast(intent1);
+        }
+    };
+
+    //helper function for getting the new random price
+    private double getNewPrice(double cap, double x){
+        x = 0.5-x;                          //To center at 0, reversing sign
+        return 0.5 * cap + 1.5 * cap / (1 + Math.exp(x));
+    }
+
+    //This is called whenever a short sale occurs by the player. Short sales require different price manipulation
+    private BroadcastReceiver SharesShortTransactionRec = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            Bundle data = intent.getExtras();
+            int SID = data.getInt("SID");
+            int amount = data.getInt("amount");
+            int oldPrice = data.getInt("atPrice");
+            int days = data.getInt("Days");
+
+            f.ShortShare(SID, amount, days);
+            p.alterMoney(amount * oldPrice);
+            if(fullGame)DBHandler.ShortShare(SID, amount, oldPrice, time.totalDays(days), p.getMoney());
+
+            amount = Math.round(amount/2);
+            f.alterRemShares(SID, amount);
+            int remaining = f.getRemShares(SID);
+            if(fullGame)DBHandler.setRemShares(SID, remaining);
+
+            UpdateCommandsUI();
+
+            int newPrice;
+            double cap = (2*f.getCap(SID) + f.getAvg(SID))/3;
+            double dnewPrice = getNewPrice(cap, (double)f.getRemShares(SID)/f.getTotalShares(SID)) + Math.random()*35;
+
+
+            if(dnewPrice>65000){
+                f.doubleShares(SID);
+                cap = (2*f.getCap(SID) + f.getAvg(SID))/3;
+                if(fullGame)DBHandler.setCompTotalShares(SID, f.getTotalShares(SID));
+                editNews(25, getString(R.string.NewsDoubleShares, f.getName(SID)), getString(R.string.NewsDoubleSharesBody, f.getName(SID)));
+                dnewPrice = getNewPrice(cap, (double)f.getRemShares(SID)/f.getTotalShares(SID)) + Math.random()*35;
+            } else if(dnewPrice<1800){
+                f.halfShares(SID);
+                cap = (2*f.getCap(SID) + f.getAvg(SID))/3;
+                if(fullGame)DBHandler.setCompTotalShares(SID, f.getTotalShares(SID));
+                editNews(25, getString(R.string.NewsHalfShares, f.getName(SID)), getString(R.string.NewsHalfSharesBody, f.getName(SID)));
+                dnewPrice = getNewPrice(cap, (double)f.getRemShares(SID)/f.getTotalShares(SID)) + Math.random()*35;
+            }
+
+            newPrice = (int)Math.round(dnewPrice);
+
+            if(newPrice<=50) {
+                newPrice=50+(int)Math.round(Math.random() * 30);   //No price less than $0.50
+            }
+
+
+            f.setShareCurrPrice(SID, newPrice);
+            if(fullGame)DBHandler.setDBCurrPrice(SID, newPrice);
+
+            Intent intent1 = new Intent("SpecificPriceChange");
+            Bundle data1 = new Bundle();
+            data1.putInt("SID", SID);
+            data1.putInt("newPrice", newPrice);
+            data1.putInt("oldPrice", oldPrice);
+            data1.putBoolean("PlayerOwner", f.getSharesOwned(SID)>0);
+            intent1.putExtras(data1);
+            LocalBroadcastManager.getInstance(MainActivity.this).sendBroadcast(intent1);
+        }
+    };
+
+    //This is called to update the price in the UI
+    private BroadcastReceiver SpecificElementUpdate = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            Bundle data = intent.getExtras();
+            int SID = data.getInt("SID");
+            int price = data.getInt("newPrice");
+            int oldPrice = data.getInt("oldPrice");
+            boolean playerOwner = data.getBoolean("PlayerOwner");
+
+            String zeroDigit = "";
+            if(price%10==0){zeroDigit="0";}
+            TextView sharePrices = (TextView)findViewById(100000 + SID);
+            if(price>oldPrice) {
+                sharePrices.setTextColor(0xff00ff00); //Color green for price going up
+            } else if (price<oldPrice) {
+                sharePrices.setTextColor(0xffff0000); //Color red for price going down
+            } else {
+                sharePrices.setTextColor(0xffffffff); //Color white for price unchanged
+            }
+            sharePrices.setText(Double.toString((double)price/100) + zeroDigit);
+
+            Button Sell = (Button)findViewById(400000 + SID);
+            if(playerOwner & dayOpen){
+                Sell.setEnabled(true);
+                Sell.setTextColor(0xffffffff);
+            } else if(p.getLevel()>=4 & !f.isShorted(SID)& dayOpen){
+                Sell.setEnabled(true);
+                Sell.setTextColor(0xffff0000);
+            } else {
+                Sell.setEnabled(false);
+                Sell.setTextColor(0xff000000);
+            }
+        }
+    };
+
+
+
+    //UI UPDATES
+    //RUN ONLY ON UI THREAD
+
+    //Turns Buy/Sell buttons on and off depending on whether the market is open or not.
+    public void UpdateCommandsUI(){
+        Button B;
+        try{
+            for (int i = 0; i < f.getNumComp(); i++) {
+                B = (Button) findViewById(300000 + i); //Buy Button
+                if(dayOpen & (p.getMoney()>0)) {
+                    B.setEnabled(true);
+                    B.setTextColor(0xffffffff);
+                } else if(dayOpen & (p.getLevel()>= 4)){
+                    B.setEnabled(true);
+                    B.setTextColor(0xffff0000);
+                } else {
+                    B.setEnabled(false);
+                    B.setTextColor(0xff000000);
+                }
+
+                B = (Button) findViewById(400000 + i); //Sell Button
+                if (dayOpen & (f.getSharesOwned(i) > 0)) {
+                    B.setEnabled(true);
+                    B.setTextColor(0xffffffff);
+                } else if(p.getLevel()>=4 & !f.isShorted(i) & dayOpen){
+                    B.setEnabled(true);
+                    B.setTextColor(0xffff0000); //Red Color for short positions
+                } else {
+                    B.setEnabled(false);
+                    B.setTextColor(0xff000000);
+                }
+            }
+        } catch (Exception e){
+            e.printStackTrace();
+        }
+    }
+
+    //This function is for updating both prices and buttons
+    private void UpdateCentralUI() {
+        LinearLayout parentLayout = (LinearLayout)findViewById(R.id.Main_CentralLayout);
+        LayoutInflater layoutInflater = getLayoutInflater();
+        View view;
+        int intPrice;
+        double dPrice;
+        parentLayout.removeAllViews();
+        for(int i=0;i<f.getNumComp();i++){
+            view = layoutInflater.inflate(R.layout.main_share, parentLayout, false);
+            LinearLayout shareData = (LinearLayout)view.findViewById(R.id.shareData);
+
+            TextView shareInfo = (TextView)shareData.findViewById(R.id.shareInfo);
+            shareInfo.setId(200000 + i);
+            shareInfo.setText(f.getName(i));
+            intPrice = f.getShareCurrPrince(i);
+            dPrice = (double)intPrice/100;
+            String zeroDigit = "";
+            if(intPrice%10==0){zeroDigit="0";}
+            TextView sharePrices = (TextView)shareData.findViewById(R.id.sharePrice);
+            sharePrices.setId(100000 + i);
+            sharePrices.setText(Double.toString(dPrice) + zeroDigit);
+
+            Button Buy = (Button)shareData.findViewById(R.id.BuyButton);
+            Buy.setId(300000 + i);
+            Buy.setText(getString(R.string.Buy_Button));
+            if(dayOpen & (p.getMoney()>0)) {
+                Buy.setEnabled(true);
+                Buy.setTextColor(0xffffffff);
+            } else if(dayOpen & (p.getLevel()>=4)){
+                Buy.setEnabled(true);
+                Buy.setTextColor(0xffff0000);
+            } else {
+                Buy.setEnabled(false);
+                Buy.setTextColor(0xff000000);
+            }
+            Button Sell = (Button)shareData.findViewById(R.id.SellButton);
+            Sell.setId(400000 + i);
+            Sell.setText(getString(R.string.Sell_Button));
+            if((f.getSharesOwned(i)>0) & dayOpen) {
+                Sell.setEnabled(true);
+                Sell.setTextColor(0xffffffff);
+            } else if(p.getLevel()>=4 & !f.isShorted(i) & dayOpen){
+                Sell.setEnabled(true);
+                Sell.setTextColor(0xffff0000); //Red Color for short positions
+            } else {
+                Sell.setEnabled(false);
+                Sell.setTextColor(0xff000000);
+            }
+
+            parentLayout.addView(shareData);
+        }
+    }
+
+    //This is called to update the topBar, mainly for time and money alterations.
     public void UpdateTopBar(TextView player, TextView daytime){
         long money = p.getMoney();
         int level = p.getLevel();
         int assets = p.getAssets();
-        String zerodigit;
-        if(money%10==0)zerodigit="0";
-        else zerodigit="";
-        String TBPlayer = "Lvl "+level+": $"+Double.toString((double)money/100)+zerodigit+" ("+assets+") ";
+        String zeroDigit;
+        if(money%10==0)zeroDigit="0";
+        else zeroDigit="";
+        String TBPlayer = "Lvl "+level+": $"+Double.toString((double)money/100)+zeroDigit+" ("+assets+") ";
         player.setText(TBPlayer);
         daytime.setText(time.DTtoString());
     }
 
+
+
+    //Button And Menu Selections
+
+    //This is called when the player clicks a Buy button in the central UI, to load the Buy Activity
     public void BuyClick(View v){
         Intent intent = new Intent(MainActivity.this, BuyActivity.class);
         Bundle data = new Bundle();
@@ -1828,6 +1970,7 @@ public class MainActivity extends AppCompatActivity {
         startActivity(intent);
     }
 
+    //This is called when the player clicks a Sell button in the central UI, to load the Sell Activity
     public void SellClick(View v){
         Intent intent = new Intent(MainActivity.this, SellActivity.class);
         Bundle data = new Bundle();
@@ -1846,6 +1989,7 @@ public class MainActivity extends AppCompatActivity {
         startActivity(intent);
     }
 
+    //This is called when the player clicks a price in the central UI, to load the ShareActivity (share information)
     public void clickPrice(View v){
         Intent intent = new Intent(MainActivity.this, ShareActivity.class);
         Bundle data = new Bundle();
@@ -1872,6 +2016,7 @@ public class MainActivity extends AppCompatActivity {
         startActivity(intent);
     }
 
+    //This is called when the player clicks a name in the central UI, to load the ShareActivity (share information)
     public void clickName(View v){
         Intent intent = new Intent(MainActivity.this, ShareActivity.class);
         Bundle data = new Bundle();
@@ -1898,133 +2043,83 @@ public class MainActivity extends AppCompatActivity {
         startActivity(intent);
     }
 
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
-        getMenuInflater().inflate(R.menu.menu_main, menu);
-        menu.findItem(R.id.menu_sound).setChecked(playSound);
-        return true;
-    }
 
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
-        int id = item.getItemId();
-
-        switch (id){
-            case R.id.menu_Exit:
-                ExitClicked();
-                break;
-            case R.id.menu_sound:
-                if(playSound) {
-                    if (soundplayer.isPlaying()) soundplayer.stop();
-                    soundplayer.release();
-                }
-                playSound = !playSound;
-                if(playSound)         soundplayer = MediaPlayer.create(MainActivity.this, R.raw.bell);
-                if(fullGame)DBHandler.setSound(playSound);
-                item.setChecked(playSound);
-                break;
-            case R.id.menu_NewGame:
-                SelectNewGame();
-                break;
-            case R.id.About:
-                LoadCredits();
-                break;
-            case R.id.QuickGame:
-                StartQuickGame();
-                break;
-        }
-
-        return super.onOptionsItemSelected(item);
-    }
-
-    @Override
-    public void onBackPressed() {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle(getString(R.string.Quit));
-        builder.setMessage(getString(R.string.QuitMessage));
-
-        builder.setPositiveButton(getString(R.string.ExitButton), new DialogInterface.OnClickListener() {
-
-            public void onClick(DialogInterface dialog, int which) {
-                dialog.dismiss();
-                ExitClicked();
-            }
-
-        });
-
-        builder.setNegativeButton(getString(R.string.CancelButton), new DialogInterface.OnClickListener() {
-
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                // Do nothing
-                dialog.dismiss();
-            }
-        });
-
-        AlertDialog alert = builder.create();
-        alert.show();
-    }
-
-    private void LoadCredits(){
-        String[] Credits = new String[2];
-        Credits[0] = getString(R.string.CreditsTitle);
-        Credits[1] = getString(R.string.Credits);
-        Intent intent = new Intent(MainActivity.this, NewsActivity.class);
+    //Load the messages activity when the button is clicked
+    public void MessagesLoad(View v){
+        Intent intent = new Intent(MainActivity.this, MessagesActivity.class);
         Bundle data = new Bundle();
-        data.putStringArray("NewsArray", Credits);
+        data.putBoolean("playsound", playSound);
+        data.putLong("Pmoney", p.getMoney());
+        data.putInt("level", p.getLevel());
+        data.putInt("assets", p.getAssets());
         intent.putExtras(data);
         startActivity(intent);
     }
 
-    private void StartQuickGame(){
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle(getString(R.string.QuickGameTitle));
-        builder.setMessage(getString(R.string.QuickGame));
-
-        builder.setPositiveButton(getString(R.string.MessageGo), new DialogInterface.OnClickListener() {
-
-            public void onClick(DialogInterface dialog, int which) {
-                stopRepTask();
-                DBHandler.close();
-                dayOpen = false;
-                fullGame = false;
-                f = new Finance(4);
-                p = new Gamer(500000000, 5, 20, 1000);
-                time = new Daytime(LocalBroadcastManager.getInstance(MainActivity.this));
-                state = getEconomyState(f.getSectorOutlook(0));
-                UpdateCentralUI();
-                UpdateTopBar(topBarPlayer, topBarDaytime);
-                dialog.dismiss();
-                startRepTask();
-            }
-
-        });
-
-        builder.setNegativeButton(getString(R.string.CancelButton), new DialogInterface.OnClickListener() {
-
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                // Do nothing
-                dialog.dismiss();
-            }
-        });
-
-        AlertDialog alert = builder.create();
-        alert.show();
+    //Load the Economy information activity when the button is clicked
+    public void EconomyInfoLaunch(View v){
+        Intent intent = new Intent(MainActivity.this, EconomyInfoActivity.class);
+        Bundle data = new Bundle();
+        data.putBoolean("Sound", playSound);
+        data.putLong("Economy_size", f.getFullEconSize());
+        data.putInt("TotalCompanies", f.getNumComp());
+        data.putInt("SumOfShares", f.getSumShares());
+        data.putLong("Pmoney", p.getMoney());
+        data.putInt("level", p.getLevel());
+        data.putInt("assets", p.getAssets());
+        intent.putExtras(data);
+        startActivity(intent);
     }
 
-    public void ExitClicked() {
-        stopRepTask();
-        if(fullGame)DBHandler.close();
-        if(playSound)soundplayer.release();
-        MainActivity.this.finish();
-        System.exit(1);
+    //This is called when the player presses the Player Info button to launch PLayerInfoActivity
+    public void PlayerButtonClick(View v) {
+        Intent intent = new Intent(MainActivity.this, PlayerInfoActivity.class);
+        Bundle data = new Bundle();
+        data.putBoolean("playSound", playSound);
+        data.putLong("Pmoney", p.getMoney());
+        data.putInt("level", p.getLevel());
+        data.putInt("assets", p.getAssets());
+        data.putInt("next", getNextLevelPrereq());
+        data.putLong("NetWorth", f.NetWorth());
+        if(fullGame) data.putStringArray("history", DBHandler.GetPlayerHistory());
+        else {
+            String[] values = new String[1];
+            values[0] = "History is only available at full games.";
+            data.putStringArray("history", values);
+        }
+        intent.putExtras(data);
+        startActivity(intent);
     }
 
+    //This is called when the player presses the Info button to Load the InfoActivity
+    public void clickInfo(View v){
+
+        Intent intent = new Intent(MainActivity.this, InfoActivity.class );
+        Bundle data = new Bundle();
+        data.putLong("Pmoney", p.getMoney());
+        data.putInt("Plevel", p.getLevel());
+        data.putInt("Passets", p.getAssets());
+        data.putStringArrayList("Info", Infos);
+        data.putBoolean("playSound", playSound);
+        intent.putExtras(data);
+        startActivity(intent);
+    }
+
+    //Used to show the newsActivity with the current news.
+    public void NewsLoad(View v){
+        Intent intent = new Intent(MainActivity.this, NewsActivity.class);
+        Bundle data = new Bundle();
+        data.putStringArray("NewsArray", News);
+        intent.putExtras(data);
+        startActivity(intent);
+    }
+
+
+    
+    //MENU OPTIONS
+
+    //This is called when a player selects to start a new game from the menu. Only full assets are maintained from
+    //one game to the next, all other data is lost.
     private void SelectNewGame(){
         if(fullGame) {
             AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
@@ -2073,4 +2168,63 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    //This is called when the player loads the credits from the menu
+    private void LoadCredits(){
+        String[] Credits = new String[2];
+        Credits[0] = getString(R.string.CreditsTitle);
+        Credits[1] = getString(R.string.Credits);
+        Intent intent = new Intent(MainActivity.this, NewsActivity.class);
+        Bundle data = new Bundle();
+        data.putStringArray("NewsArray", Credits);
+        intent.putExtras(data);
+        startActivity(intent);
+    }
+
+    //This is called to start a new Quick game, where the player has a lot of money and assets and is at level 5.
+    //This is for demonstration purposes. Quick games are not saved
+    private void StartQuickGame(){
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle(getString(R.string.QuickGameTitle));
+        builder.setMessage(getString(R.string.QuickGame));
+
+        builder.setPositiveButton(getString(R.string.MessageGo), new DialogInterface.OnClickListener() {
+
+            public void onClick(DialogInterface dialog, int which) {
+                stopRepTask();
+                DBHandler.close();
+                dayOpen = false;
+                fullGame = false;
+                f = new Finance(4);
+                p = new Gamer(500000000, 5, 20, 1000);
+                time = new Daytime(LocalBroadcastManager.getInstance(MainActivity.this));
+                state = getEconomyState(f.getSectorOutlook(0));
+                UpdateCentralUI();
+                UpdateTopBar(topBarPlayer, topBarDaytime);
+                dialog.dismiss();
+                startRepTask();
+            }
+
+        });
+
+        builder.setNegativeButton(getString(R.string.CancelButton), new DialogInterface.OnClickListener() {
+
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                // Do nothing
+                dialog.dismiss();
+            }
+        });
+
+        AlertDialog alert = builder.create();
+        alert.show();
+    }
+
+    //This is called evey time the player selects Exit from the menu
+    public void ExitClicked() {
+        stopRepTask();
+        if(fullGame)DBHandler.close();
+        if(playSound) soundPlayer.release();
+        MainActivity.this.finish();
+        System.exit(1);
+    }
 }

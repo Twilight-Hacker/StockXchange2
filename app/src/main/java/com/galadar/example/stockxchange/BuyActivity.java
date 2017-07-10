@@ -29,20 +29,20 @@ If necessary, it also adjusts the amount to not exceed max.
 
 public class BuyActivity extends AppCompatActivity {
 
-    static int amount;
-    static int price;
-    static int total;
-    static int level;
-    static int assets;
-    static int max;
-    static long money;
-    static int SID;
-    static String Sname;
-    static int owned;
-    static Daytime time;
-    static boolean playSound;
-    String zerodigit;
-    static int totalShares;
+    static int amount;          //The amount of the shares to buy
+    static int price;           //the current share price
+    static int total;           //the total price (amount * price)
+    static int level;           //the level of the player
+    static int assets;          //the full assets the player has
+    static int max;             //the maximum amount the player can buy with their current amount of cash
+    static long money;          //the amount of cash the player has
+    static int SID;             //the share id the system uses to differentiate the share
+    static String Sname;        //The name of the share
+    static int owned;           //does the player already own this share?
+    static Daytime time;        //Object for storing time data (term, day, hour, minutes)
+    static boolean playSound;   //Play sound? Mostly used in menu for ticking the option
+    String zerodigit;           //Temp variable for printing the extra 0 if required ($5.0 -> $5.00)
+    static int totalShares;     //The total shares available from this company
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

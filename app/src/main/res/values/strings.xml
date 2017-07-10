@@ -141,7 +141,7 @@
     <string name="NoButton">"NO"</string>
     <string name="ToastNewGameImpossible">"Not possible in Quick Game"</string>
     <string name="Quit">"Quit"</string>
-    <string name="QuitMessage">"Do you want to exit the game?"</string>
+    <string name="QuitMessage">"Current day will not be saved. Do you really want to exit the game?"</string>
     <string name="ExitButton">"Exit"</string>
     <string name="NewsBoomTitle">"Economic Boom"</string>
     <string name="NewsBoom">"The government officials report that the economy is Booming, and great profit is to be made in the foreseable future, in all Industries."</string>

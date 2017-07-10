@@ -23,7 +23,8 @@ Two extra buttons set the amount to max and 0 respectively.
 
 The amount cannot be less than 0 (obviously, shares are bought elsewhere), and more than they own.
 
-Short selling is only available on higher levels.
+Short selling is only available on higher levels. If available, and if the player does not own shares, a numeric textbox is added for
+the player to input the number of days until the sale is settled
 
 Buttons that should not be used become inactive. When done, the player clicks the Sell button which sends an intent broadcast (locally)
 to a receiver in Main that handles the transaction, and finishes the activity to return to Main.
@@ -33,18 +34,18 @@ The activity also updates prices automatically when a new price is generated fro
 
 public class SellActivity extends AppCompatActivity {
 
-    static int price;
-    static int amount;
-    static int total;
-    static int SID;
-    static long money;
-    static int owned;
-    static int level;
-    static int assets;
-    static String Sname;
-    static Daytime time;
-    static boolean playSound;
-    String zerodigit;
+    static int price;           //the current share price
+    static int amount;          //The amount of the shares to buy
+    static int total;           //the total price (amount * price)
+    static int SID;             //the share id the system uses to differentiate the share
+    static long money;          //the amount of cash the player has
+    static int owned;           //the amount of shares of this company the player owns
+    static int level;           //the level of the player (higher levels allow short selling)
+    static int assets;          //the full assets the player has
+    static String Sname;        //The name of the share
+    static Daytime time;        //Object for storing time data (term, day, hour, minutes)
+    static boolean playSound;   //Play sound? Mostly used in menu for ticking the option
+    String zerodigit;           //Temp variable for printing the extra 0 if required ($5.0 -> $5.00)
 
 
     @Override

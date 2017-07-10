@@ -8,24 +8,41 @@ import java.util.Random;
 /**
  * Created by Galadar on 29/9/2015.
  * Finance Object
+ *
+ * This is a wrapper object that holds all financial data for the game. This is the "RAM memory" on which the game runs.
+ *
+ * There are 3 constructors. One for Starting a new Quick game, one for Loading a game from DB and one for starting a new full game
+ *
+ * Check each variable declaration for what it does, as well as each function to find out where it is used
+ *
+ * For more information, see MainActivity
+ *
+ * Companies, shares, Scams, Shorts and all related tables share the same index in their respective arrays.
+ * This is denoted as sid or cid.
  */
-public class Finance {
 
-    private double[][] outlooks;
-    long size1, size2;
-    HashSet<String> CompaniesNames;
-    HashSet<String> Scams;
-    int[][] ScamResolution;
-    String[] Names;
-    int[][] Shares;
-    long[][] Companies;
-    int[][] Short;
-    int[][] ShareDayLimits; //For storing shares data (OPEN-HIGH-LOW-CLOSE) for the day. Update during day as price changes, then record.
-    Company company;
-    Share share;
-    int numComp;
+class Finance {
 
-    public Finance(int size) { //Quick Game Constructor
+    private double[][] outlooks;            //This holds the economy and sector outlooks
+    private long size1, size2;              //The two sizes of the economy (see getter functions)
+    private HashSet<String> CompaniesNames; //Hash set for making sure no two companies have the same name
+    private HashSet<String> Scams;          //Hash set for making sure a share is not part of multiple scams
+    private int[][] ScamResolution;         //Array for storing scam type and days left to execute scam for every share
+    private String[] Names;                 //Array with all company/share names
+    private int[][] Shares;                 //Array holding share data for quick access
+    private long[][] Companies;             //Array holding Company data for quick access
+    private int[][] Short;                  //Array holding data on short sales
+    private int[][] ShareDayLimits;         //For storing shares data (OPEN-HIGH-LOW-CLOSE) for the day. Update during day as
+    // price changes, then record.
+    private Company company;                //General object for temporary company creation
+    private Share share;                    //General object for temporary share creation
+    private int numComp;                    //variable for the current number of companies/shares
+
+
+    //CONSTRUCTORS
+
+    //Quick game
+    Finance(int size) { //Quick Game Constructor
         numComp = size*10;
         Companies = new long[numComp][8];
         Shares = new int[numComp][5];
@@ -106,7 +123,8 @@ public class Finance {
 
     }
 
-    public Finance(MemoryDB DBHandler){ //Loaded Game Constructor
+    //Load game
+    Finance(MemoryDB DBHandler){ //Loaded Game Constructor
         String name;
         int CurrentDay = MainActivity.getClock().totalDays();
         numComp = DBHandler.getMaxSID();
@@ -171,7 +189,7 @@ public class Finance {
         ScamResolution = new int[numComp][2];
         for (int i = 0; i < ScamResolution.length; i++) {
             if(DBHandler.isScam(i)){
-                Scams.add(Names[i]);                //Add name to Hashset
+                Scams.add(Names[i]);                //Add name to Hash set
                 ScamResolution[i][0] = DBHandler.getScamType(i);
                 ScamResolution[i][1] = DBHandler.getScamResolutionDay(i)-CurrentDay;
             } else {
@@ -192,7 +210,8 @@ public class Finance {
 
     }
 
-    public Finance(MemoryDB DBHandler, int size) { //New Game Contsructor
+    //New game
+    Finance(MemoryDB DBHandler, int size) { //New Game Constructor
         numComp = size*10;
         Companies = new long[numComp][8];
         Shares = new int[numComp][5];
@@ -255,13 +274,13 @@ public class Finance {
 
     }
 
-    public void clearShort(int SID){
-        Short[SID][0]=0;
-        Short[SID][1]=-1;
-    }
 
 
-    public long calcEconSize1(){ //Econ Size of shares
+    //OTHER
+
+    //For (re)calculating the economy size 1: The sum of the product (for each share) of the number of
+    //shares times their current price
+    long calcEconSize1(){ //Econ Size of shares
         long size=0;
         long am;
         for (int i = 0; i < Companies.length; i++) {
@@ -271,11 +290,13 @@ public class Finance {
         return size;
     }
 
-    public long getEconSize1(){ //Econ Size of shares
+    //For retrieving the stored size 1 (without recalculating)
+    long getEconSize1(){ //Econ Size of shares
         return this.size1;
     }
 
-    public long calcEconSize2(){ //Econ Size of Companies
+    //For (re)calculating the economy size 2 (reported size): The sum of total values of all companies
+    long calcEconSize2(){ //Econ Size of Companies
         long size=0;
         for (int i = 0; i < Companies.length; i++) {
             size+=getCompTotalValue(i)/1000;
@@ -283,59 +304,32 @@ public class Finance {
         return size;
     }
 
-    public long getEconSize2(){ //Econ Size of Companies
+    //For retrieving the stored size 2 (reported size) (without recalculating
+    long getEconSize2(){ //Econ Size of Companies
         return this.size2;
     }
 
-    public void ShortShare(int sid, int amount, int days){
-        Short[sid][0]=amount;
-        Short[sid][1]=days;
+    //Get the full economy size (sum of size 1 and size 2)
+    long getFullEconSize() {
+        return getEconSize1()+getEconSize2();
     }
 
-    public double getMarketShare(int sid){
-        return (double)Companies[sid][6]/1000;
+    //Get the sum of all shares in the economy
+    int getSumShares(){
+        int sum=0;
+        for (int i = 0; i <getNumComp() ; i++) {
+            sum += Shares[i][2];
+        }
+        return sum;
     }
 
-    public boolean isShorted(int SID){
-        return Short[SID][0]!=0;
-    }
-
-    public int getNumOfOutlooks(){
+    //Get the total number of sectors
+    int getNumOfOutlooks(){
         return outlooks.length;
     }
 
-    public int getRemShares(int id){
-        return Shares[id][4];
-    }
-
-    public void alterRemShares(int id, int amount){
-        int newAm = Shares[id][4] - amount;
-//        if(newAm<0) newAm = 0;
-//        else if(newAm>getTotalShares(id))newAm = getTotalShares(id);
-        Shares[id][4] = newAm;
-    }
-
-    public int getShortRemainingDays(int SID){ return Short[SID][1]; }
-
-    public int getPosShortAmount(int SID){ return Math.abs(Short[SID][0]); }
-
-    public long getLastRevenue(int id) { return (int)Companies[id][4]; }
-
-    public void setLastRevenue(int id, long revenue) { Companies[id][4] = revenue; }
-
-    public int getShareCurrPrince(int id){
-        return Shares[id][0];
-    }
-
-    public String getName(int id){
-        return Names[id];
-    }
-
-    public int getLastClose(int id){
-        return Shares[id][3];
-    }
-
-    public void DayCloseShares(){
+    //Function handling the day end tasks, updating candle data and company current values
+    void DayCloseShares(){
         for(int i=0;i<Shares.length;i++){
             Shares[i][3]=Shares[i][0];
             ShareDayLimits[i][3] = Shares[i][0];
@@ -350,7 +344,8 @@ public class Finance {
         }
     }
 
-    public void DayOpenShares() {
+    //Function handling the day start tasks, updating candle data
+    void DayOpenShares() {
         for (int i = 0; i < Shares.length; i++) {
             ShareDayLimits[i][0] = Shares[i][0];
             if(ShareDayLimits[i][1]==-1){
@@ -361,124 +356,8 @@ public class Finance {
         }
     }
 
-    public boolean isScam(int i) {
-        return Scams.contains(getName(i));
-    }
-
-    public int getScamType(int ScamTableIndex){
-        return ScamResolution[ScamTableIndex][0];
-    }
-
-    public int getScamRemDays(int ScamTableIndex){
-        return ScamResolution[ScamTableIndex][1];
-    }
-
-    public int getScamsNo(){
-        return Scams.size();
-    }
-
-    public void setShareCurrPrice(int id, int price){
-        Shares[id][0] = price;
-        if(ShareDayLimits[id][0]==-1){
-            ShareDayLimits[id][0]=price;
-            ShareDayLimits[id][1]=price;
-            ShareDayLimits[id][2]=price;
-            ShareDayLimits[id][3]=price;
-        } else {
-            if(price>ShareDayLimits[id][1])ShareDayLimits[id][1]=price;
-            else if(price<ShareDayLimits[id][2])ShareDayLimits[id][2]=price;
-        }
-    }
-
-    int[] getShareCandleData(int sid){
-        int[] data = {ShareDayLimits[sid][0],ShareDayLimits[sid][1],ShareDayLimits[sid][2],ShareDayLimits[sid][3]};
-        return data;
-    }
-
-    public int getSharesOwned(int id){
-        return Shares[id][1];
-    }
-
-    public void TransactShares(int id, int amount){
-        Shares[id][1] += amount;
-    }
-
-    public int getTotalShares(int id){
-        return Shares[id][2];
-    }
-
-    public long getCompTotalValue(int id){
-        return Companies[id][0];
-    }
-
-    public void setCompTotalValue(int id, long newV){
-        Companies[id][0] = newV;
-    }
-
-    public long getCompCurrValue(int id){
-        return Companies[id][7];
-    }
-
-    public void setCompCurrValue(int id, long newV){
-        Companies[id][7] = newV;
-    }
-
-    public void updCompCurrValue(int id, long rev){
-        Companies[id][7] += rev;
-    }
-
-    public String getCompSector(int id){
-        return Sectors.values()[(int)Companies[id][1]].toString();
-    }
-
-    public long getCompRevenue(int id){
-        return Companies[id][2];
-    }
-
-    public void UpdateCompRevenue(int id, long amount){
-        Companies[id][2] += amount;
-    }
-
-    public void ResetCompRevenue(int id){
-        Companies[id][2] = 0;
-    }
-
-    public double getCompOutlook(int id){
-        if(Math.abs(Companies[id][3])>10000) return Math.signum(Companies[id][3]);
-        else return (double)Companies[id][3]/10000;
-    }
-
-    public void setCompOutlook(int id, double newO){
-        Companies[id][3] = (int)Math.round(newO*10000);
-    }
-
-    public double getSectorOutlook(int i){
-        if(Math.abs(outlooks[i][0])<=1)return outlooks[i][0]+outlooks[i][1];
-        else return Math.signum(outlooks[i][0])+outlooks[i][1];
-    }
-
-    public double getBaseSectorOutlook(int i){
-        return outlooks[i][0];
-    }
-
-    public void setSectorOutlook(int index, double newO){
-        outlooks[index][0]=newO;
-    }
-
-    public void alterSectorOutlook(int index, double newO){
-        outlooks[index][0]+=newO;
-    }
-
-    public void setSectorEventOutlook(int index, double newO){
-        outlooks[index][1]+=newO;
-    }
-
-    public boolean addScam(int sid){
-        return Scams.add(getName(sid));
-    }
-
-
-    public static String randomName() {
+    //Get a random 4 Letter sequence to serve as a name for a company/share
+    static String randomName() {
 
         final String alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
         final int N = alphabet.length();
@@ -491,33 +370,29 @@ public class Finance {
         return value;
     }
 
-    public int getInvestment(int id) {
-
-        return (int)Companies[id][5];
-
-    }
-
-    public void setInvestment(int id, int newInv){
-        Companies[id][5]=newInv;
-    }
-
-    public boolean addCompanyName(String name){
+    //Try to add a name in the names list to see if available for use
+    boolean addCompanyName(String name){
         return CompaniesNames.add(name);
     }
 
-    public int getNumComp() {
+    //Get the number of companies in this economy
+    int getNumComp() {
         return numComp;
     }
 
-    public int getSumShares(){
-        int sum=0;
-        for (int i = 0; i <getNumComp() ; i++) {
-            sum += Shares[i][2];
+    //Get the economy size 1 (the hidden size) for a sector
+    long getSectorValue(int Sec) {
+        long size=0;
+        for (int i = 0; i < Companies.length; i++) {
+            if(getCompSectorInt(i)==Sec){
+                size+=getCompCurrValue(i);
+            }
         }
-        return sum;
+        return size;
     }
 
-    public long getSecEconSize(int sectorI) {
+    //Get the economy size 2 (the reported size) for a sector
+    long getSecEconSize(int sectorI) {
         long size =0;
         for (int i = 0; i < Companies.length; i++) {
             if(Companies[i][1]==sectorI){
@@ -527,11 +402,8 @@ public class Finance {
         return size;
     }
 
-    public int getCompSectorInt(int i) {
-        return (int)Companies[i][1];
-    }
-
-    public long NetWorth(){
+    //Get the player's total shares net worth (will add bonds here later)
+    long NetWorth(){
         long value = 0;
         for (int i = 0; i < Shares.length; i++) {
             value += getShareCurrPrince(i)*getSharesOwned(i);
@@ -539,29 +411,377 @@ public class Finance {
         return value;
     }
 
-    public void addScamData(int sid, int type, int totalDays) {
-        ScamResolution[sid][0]=type;
-        ScamResolution[sid][1]=totalDays;
+    //Get a random id for a (non-bankrupt) company
+    int getRandomActiveSID() {
+        int sid;
+        Random random = new Random();
+        do{
+            sid=random.nextInt(getNumComp());
+        } while(isScam(sid) | (getCompCurrValue(sid)<=0));
+        return sid;
     }
 
-    public void removeExecutedScam(int i){
-        Scams.remove(getName(i));
-        ScamResolution[i][0]=0;
-        ScamResolution[i][1]=-1;
+    //Clean up for term end to reset company names so that they match their cid/sid numbers
+    void resetAllNames(){
+        Object[] NamesObj = CompaniesNames.toArray();
+        Names = new String[CompaniesNames.size()];
+        for (int i = 0; i < CompaniesNames.size(); i++) {
+            Names[i]=NamesObj[i].toString();
+        }
+        numComp=Names.length;
     }
 
-    public void removeCalledScam(int i){
-        Scams.remove(getName(i));
-        ScamResolution[i][0]=0;
-        ScamResolution[i][1]=-1;
+    //Get the company's name
+    String getName(int id){
+        return Names[id];
     }
 
-    public void Bankrupt(int i) { //you lose all shares in the remaining company
+    //add revenue for all companies
+    void revenue(MainActivity.EconomyState ec) {
+        double upper, lower;
+
+        switch (ec){
+            case Boom:
+                upper = 7.5;
+                lower = -2.5;
+                break;
+            case Accel:             //Increased chance of profit/ reduced chance of loss
+                upper = 6.0;
+                lower = -3.0;
+                break;
+            case Normal:            //Nearly equal economic chance of profit and loss
+                upper = 5.0;
+                lower = -5.0;
+                break;
+            case Recess:            //Decreased chance of loss/ reduced chance of profit
+                upper = 3.0;
+                lower = -6.0;
+                break;
+            default: //Assume depression (to avoid might not have been initialized error)
+                upper = 2.5;
+                lower = -7.5;
+                break;
+        }
+
+        long marketSize= Math.round(RangedRandom(100, 500));
+        for (int i = 0; i < getNumComp(); i++) { //Add revenue
+            if(getCompCurrValue(i)<=0)continue; //Exclude bankrupt companies
+            upper += 2*getCompOutlook(i)+getSectorOutlook(getCompSectorInt(i)+1);
+            lower += 2*getCompOutlook(i)+getSectorOutlook(getCompSectorInt(i) + 1);
+            UpdateCompRevenue(i, Math.round(marketSize*getMarketShare(i)*(RangedRandom(upper, lower)) ));
+
+        }
+    }
+
+    //Get a random number between upper and lower
+    private double RangedRandom(double Upper, double Lower){
+        double diff = Upper-Lower;
+        return Math.random()*diff + Lower;
+    }
+
+    //CAP and AVG are the final determinants for the share price. Please see Main Activity for details.
+    double getCap(int sid){
+        return (double)getCompCurrValue(sid)*100/getTotalShares(sid);
+    }
+
+    //CAP and AVG are the final determinants for the share price. Please see Main Activity for details.
+    double getAvg(int sid){
+        return (double)getCompTotalValue(sid)*100/getTotalShares(sid);
+    }
+
+
+
+    //SHORT SALES
+
+    //For shorting a share, by id, number of shares shorted and days until the sale must be settled
+    void ShortShare(int sid, int amount, int days) {
+        Short[sid][0] = amount;
+        Short[sid][1] = days;
+    }
+
+    //Return if the player has sold short this share
+    boolean isShorted(int SID){
+        return Short[SID][0]!=0;
+    }
+
+    //How many shares were shorted
+    int getPosShortAmount(int SID){ return Math.abs(Short[SID][0]); }
+
+    //How many days remain until the short sale must be settled
+    int getShortRemainingDays(int SID){ return Short[SID][1]; }
+
+    //Called to negate short after it is settled
+    void clearShort(int SID){
+        Short[SID][0]=0;
+        Short[SID][1]=-1;
+    }
+
+
+
+    //COMPANIES
+
+    //Get the public total value of the company
+    long getCompTotalValue(int id){
+        return Companies[id][0];
+    }
+
+    //Set the public total value of the company
+    void setCompTotalValue(int id, long newV){
+        Companies[id][0] = newV;
+    }
+
+    //Get Sector ID the company belongs to
+    int getCompSectorInt(int i) {
+        return (int)Companies[i][1];
+    }
+
+    //Get the current company revenue (hidden)
+    long getCompRevenue(int id){
+        return Companies[id][2];
+    }
+
+    //Update the current company revenue (hidden) (add amount)
+    void UpdateCompRevenue(int id, long amount){
+        Companies[id][2] += amount;
+    }
+
+    //Set the revenue back to 0 (at day end) to start accumulating again
+    void ResetCompRevenue(int id){
+        Companies[id][2] = 0;
+    }
+
+    //Get the (hidden) current value of the company
+    long getCompCurrValue(int id){
+        return Companies[id][7];
+    }
+
+    //Get the Sector the company belongs to (as string)
+    String getCompSector(int id){
+        return Sectors.values()[(int)Companies[id][1]].toString();
+    }
+
+    //Get the company outlook (that is used to determine future revenues)
+    //The outlook in calculations cannot exceed +-1, but must be stored as is, so that it can be increased/decreased normally
+    double getCompOutlook(int id){
+        if(Math.abs(Companies[id][3])>10000) return Math.signum(Companies[id][3]);
+        else return (double)Companies[id][3]/10000;
+    }
+
+    //Set the company outlook to a new value
+    void setCompOutlook(int id, double newO){
+        Companies[id][3] = (int)Math.round(newO*10000);
+    }
+
+    //Get the reported (last term's) revenue
+    long getLastRevenue(int id) { return (int)Companies[id][4]; }
+
+    //Set the reported (last term's) revenue
+    void setLastRevenue(int id, long revenue) { Companies[id][4] = revenue; }
+
+    //Get the investment for this company
+    int getInvestment(int id) {
+        return (int)Companies[id][5];
+    }
+
+    //Set the investment for this company
+    void setInvestment(int id, int newInv){
+        Companies[id][5]=newInv;
+    }
+
+    //Get the company's market share (affects revenue with sector outlook)
+    double getMarketShare(int sid){
+        return (double)Companies[sid][6]/1000;
+    }
+
+    //set the (hidden) current value of the company
+    void setCompCurrValue(int id, long newV){
+        Companies[id][7] = newV;
+    }
+
+    //Update the (hidden) current value of the company (add amount rev)
+    void updCompCurrValue(int id, long rev){
+        Companies[id][7] += rev;
+    }
+
+    //Bankrupt a company (set extremely negative total value and outlook, share price drops really fast)
+    void Bankrupt(int i) { //you lose all shares in the remaining company
         setCompCurrValue(i, -10000);
         setCompOutlook(i, -10);
     }
 
-    public int getSectorOutlookIndex(String Sector){ //For Finance Tables
+    //remove a bankrupt company's name from the hash set
+    void removeCompanyName(String name) {
+        CompaniesNames.remove(name);
+    }
+
+    //Calculate an amount to be given as dividend
+    int GetDividend(int i, long revenue) {
+        int dividend = Math.max(getShareCurrPrince(i)/100, 100); //min dividend of $1, max at 1% of share price
+        Random random = new Random();
+        while (dividend*getTotalShares(i)>revenue*50){ //no more than half of revenue to dividend
+            dividend-=random.nextInt(100);
+        }
+        return dividend;
+    }
+
+
+
+    //SHARES
+
+    //Get the current price of the share
+    int getShareCurrPrince(int id){
+        return Shares[id][0];
+    }
+
+    //Set the current price of the share and alter the candle data if needed
+    void setShareCurrPrice(int id, int price){
+        Shares[id][0] = price;
+        if(ShareDayLimits[id][0]==-1){
+            ShareDayLimits[id][0]=price;
+            ShareDayLimits[id][1]=price;
+            ShareDayLimits[id][2]=price;
+            ShareDayLimits[id][3]=price;
+        } else {
+            if(price>ShareDayLimits[id][1])ShareDayLimits[id][1]=price;
+            else if(price<ShareDayLimits[id][2])ShareDayLimits[id][2]=price;
+        }
+    }
+
+    //Get how many shares the player owns
+    int getSharesOwned(int id){
+        return Shares[id][1];
+    }
+
+    //Change the amount of shares the player owns
+    void TransactShares(int id, int amount){
+        Shares[id][1] += amount;
+    }
+
+    //Get the total number of shares outstanding the company has
+    int getTotalShares(int id){
+        return Shares[id][2];
+    }
+
+    //Get the price the share closed the previous day
+    int getLastClose(int id){
+        return Shares[id][3];
+    }
+
+    //Get the amount of shares remaining available (possible multi player use?)
+    int getRemShares(int id){
+        return Shares[id][4];
+    }
+
+    //Update the amount of shares remaining available (add amount) (possible multi player use?)
+    void alterRemShares(int id, int amount){
+        int newAm = Shares[id][4] - amount;
+        Shares[id][4] = newAm;
+    }
+
+    //For when a company splits (doubles) its shares outstanding. Used to prevent the shares for reaching a very high price that
+    //will make the unavailable to smaller investors
+    void doubleShares(int sid) {
+        Shares[sid][2] *= 2;
+        Shares[sid][1] *= 2;
+    }
+
+    //For when a company halves its shares outstanding. Used to prevent the shares for reaching a very low price that
+    //will make the unattractive to larger investors
+    void halfShares(int sid) {
+        Shares[sid][2] = (int)Math.floor(Shares[sid][2]/2)+1;
+        if(Shares[sid][1]>0) {
+            Shares[sid][1] = (int) Math.floor(Shares[sid][1] / 2) + 1;
+        }
+    }
+
+    //Get the candlestick data of the share (Open, High, Low, Close)
+    int[] getShareCandleData(int sid){
+        int[] data = {ShareDayLimits[sid][0],ShareDayLimits[sid][1],ShareDayLimits[sid][2],ShareDayLimits[sid][3]};
+        return data;
+    }
+
+
+
+    //SCAMS
+
+    //Check if there is an ongoing scam with this share
+    boolean isScam(int i) {
+        return Scams.contains(getName(i));
+    }
+
+    //Get the id of the type of the scam (0 if no scam)
+    int getScamType(int ScamTableIndex){
+        return ScamResolution[ScamTableIndex][0];
+    }
+
+    //Get the days remaining until the scam is executed (-1 if no scam)
+    int getScamRemDays(int ScamTableIndex){
+        return ScamResolution[ScamTableIndex][1];
+    }
+
+    //Get the number of the currently ongoing scams
+    int getScamsNo(){
+        return Scams.size();
+    }
+
+    //Add a scam to the list, check if successful to proceed with adding scam data
+    boolean addScam(int sid){
+        return Scams.add(getName(sid));
+    }
+
+    //Add scam data (type and days until execution) by id
+    void addScamData(int sid, int type, int totalDays) {
+        ScamResolution[sid][0]=type;
+        ScamResolution[sid][1]=totalDays;
+    }
+
+    //Remove an executed scam (to make share available again for new scams)
+    void removeExecutedScam(int i){
+        Scams.remove(getName(i));
+        ScamResolution[i][0]=0;
+        ScamResolution[i][1]=-1;
+    }
+
+    //Remove a called scam (without any effects)
+    void removeCalledScam(int i){
+        Scams.remove(getName(i));
+        ScamResolution[i][0]=0;
+        ScamResolution[i][1]=-1;
+    }
+
+
+
+    //SECTORS
+
+
+    //Get the outlook of the sector. Adds the base outlook and the event outlook together. Base outlook is capped at +-1.
+    double getSectorOutlook(int i){
+        if(Math.abs(outlooks[i][0])<=1)return outlooks[i][0]+outlooks[i][1];
+        else return Math.signum(outlooks[i][0])+outlooks[i][1];
+    }
+
+    //Get the base outlook (the one unaffected by events) of the sector
+    double getBaseSectorOutlook(int i){
+        return outlooks[i][0];
+    }
+
+    //Reset the sector base outlook
+    void setSectorOutlook(int index, double newO){
+        outlooks[index][0]=newO;
+    }
+
+    //Update the sector base outlook
+    void alterSectorOutlook(int index, double newO){
+        outlooks[index][0]+=newO;
+    }
+
+    //Update the sector outlook by adding newO
+    void setSectorEventOutlook(int index, double newO){
+        outlooks[index][1]+=newO;
+    }
+
+    //Get sector index for use in outlooks. 0 is omitted because it is used for the economy outlook
+    int getSectorOutlookIndex(String Sector){ //For Finance Tables
         int index = -1;
         switch (Sector){
             case "Constr":
@@ -598,52 +818,8 @@ public class Finance {
         return index;
     }
 
-    public int getRandomActiveSID() {
-        int sid;
-        Random random = new Random();
-        do{
-            sid=random.nextInt(getNumComp());
-        } while(isScam(sid) | (getCompCurrValue(sid)<=0));
-        return sid;
-    }
-
-    public void removeCompanyName(String name) {
-        CompaniesNames.remove(name);
-    }
-
-    public int Getdivident(int i, long revenue) {
-        int divident = Math.max(getShareCurrPrince(i)/100, 100); //min divident of $1, max at 1% of share price
-        Random random = new Random();
-        while (divident*getTotalShares(i)>revenue*50){ //no more than half of revenue to divident
-            divident-=random.nextInt(100);
-        }
-        return divident;
-    }
-
-    public void resetAllNames(){
-        Object[] NamesObj = CompaniesNames.toArray();
-        Names = new String[CompaniesNames.size()];
-        for (int i = 0; i < CompaniesNames.size(); i++) {
-            Names[i]=NamesObj[i].toString();
-        }
-        numComp=Names.length;
-    }
-
-    public long getSectorValue(int Sec) {
-        long size=0;
-        for (int i = 0; i < Companies.length; i++) {
-            if(getCompSectorInt(i)==Sec){
-                size+=getCompCurrValue(i);
-            }
-        }
-        return size;
-    }
-
-    public long getFullEconSize() {
-        return getEconSize1()+getEconSize2();
-    }
-
-    public int getSecCompNum(int Sec) { //WARNING: Does not count bankrupt companies, Use only in term Update adding company
+    //Get the number of companies in a sector
+    int getSecCompNum(int Sec) { //WARNING: Does not count bankrupt companies, Use only in term Update adding company
         int count=0;
         for (int i = 0; i < Companies.length; i++) {
             if(getCompSectorInt(i)==Sec & getCompCurrValue(i)>0){
@@ -653,66 +829,4 @@ public class Finance {
         return count;
     }
 
-    public void revenue() {
-        double upper, lower;
-
-        switch (MainActivity.getEconomyState()){
-            case Boom:
-                upper = 7.5;
-                lower = -2.5;
-                break;
-            case Accel:             //Increased chance of profit/ reduced chance of loss
-                upper = 6.0;
-                lower = -3.0;
-                break;
-            case Normal:            //Nearly equal economic chance of profit and loss
-                upper = 5.0;
-                lower = -5.0;
-                break;
-            case Recess:            //Decreased chance of loss/ reduced chance of profit
-                upper = 3.0;
-                lower = -6.0;
-                break;
-            default: //Assume depression (to avoid might not have been initialized error)
-                upper = 2.5;
-                lower = -7.5;
-                break;
-        }
-
-        long marketSize= Math.round(RangedRandom(100, 500));
-        for (int i = 0; i < getNumComp(); i++) { //Add revenue
-            if(getCompCurrValue(i)<=0)continue; //Exclude bankrupt companies
-            upper += 2*getCompOutlook(i)+getSectorOutlook(getCompSectorInt(i)+1);
-            lower += 2*getCompOutlook(i)+getSectorOutlook(getCompSectorInt(i) + 1);
-            UpdateCompRevenue(i, Math.round(marketSize*getMarketShare(i)*(RangedRandom(upper, lower)) ));
-
-        }
-    }
-
-    private double RangedRandom(double Upper, double Lower){
-        double diff = Upper-Lower;
-        return Math.random()*diff + Lower;
-    }
-
-    public double getCap(int sid){
-        return (double)getCompCurrValue(sid)*100/getTotalShares(sid);
-    }
-
-    public double getAvg(int sid){
-        return (double)getCompTotalValue(sid)*100/getTotalShares(sid);
-    }
-
-
-    public void doubleShares(int sid) {
-        Shares[sid][2] *= 2;
-        Shares[sid][1] *= 2;
-    }
-
-
-    public void halfShares(int sid) {
-        Shares[sid][2] = (int)Math.floor(Shares[sid][2]/2)+1;
-        if(Shares[sid][1]>0) {
-            Shares[sid][1] = (int) Math.floor(Shares[sid][1] / 2) + 1;
-        }
-    }
 }

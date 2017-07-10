@@ -14,22 +14,29 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 
+/*
+In this activity the player can find info for the share, and also open the company activity that can find info for the company
+
+The player can also see the history of the share as Japanese candlesticks.
+
+ */
+
 public class ShareActivity extends AppCompatActivity implements SurfaceHolder.Callback{
 
-    static Daytime time;
-    static boolean playSound;
-    static Finance f;
-    static long money;
-    static int price;
-    static int owned;
-    static String name;
-    static int level;
-    static int assets;
-    ChartSurface chart;
-    Candle[] candleData;
-    int[] Dates;
-    int[] LineData;
-    static boolean dayOpen;
+    static Daytime time;        //Object for storing time data (term, day, hour, minutes)
+    static boolean playSound;   //Play sound? Mostly used in menu for ticking the option
+    static Finance f;           //Wrapper object for all economy data (see class)
+    static long money;          //variable for the amount of cash the player holds (for showing at top)
+    static int price;           //the current share price
+    static int owned;           //does the player already own this share?
+    static String name;         //The name of the share
+    static int level;           //variable for the player's level (for showing at top)
+    static int assets;          //variable for the amount of full assets the player has (for showing at top)
+    ChartSurface chart;         //The SurfaceView that holds the chart. See class.
+    Candle[] candleData;        //An array of candle objects, each holding data for one day
+    int[] Dates;                //Storing the dates for the chart X axis
+    int[] LineData;             //The array containing the company history data for sending to the CompanyActivity
+    static boolean dayOpen;     //A boolean indicating if the stock exchange is open for trading and transactions can occur
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
